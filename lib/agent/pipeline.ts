@@ -4,10 +4,11 @@ export type AgentStage =
   | 'retrieve-memory'
   | 'generate'
   | 'validate'
+  | 'review'
+  | 'repair'
   | 'preview'
-  | 'browser-test'
-  | 'commit'
-  | 'deploy'
+  | 'snapshot'
+  | 'finish'
 
 export type AgentTask = 'code' | 'design' | 'debug' | 'plan' | 'vision' | 'fast'
 
@@ -17,10 +18,11 @@ export const PIPELINE: AgentStage[] = [
   'retrieve-memory',
   'generate',
   'validate',
+  'review',
+  'repair',
   'preview',
-  'browser-test',
-  'commit',
-  'deploy',
+  'snapshot',
+  'finish',
 ]
 
 export function classifyTask(prompt: string): AgentTask {
