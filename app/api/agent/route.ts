@@ -41,56 +41,108 @@ function extractJson(text: string) {
   return websiteSchema.parse(JSON.parse(cleaned.slice(start, end + 1)))
 }
 
-async function generateWithNvidia(prompt: string, currentHtml?: string | null) {
+async function generateWithNvidia(
+  prompt: string,
+  currentHtml: string | null | undefined,
+  model: string,
+  timeoutMs: number
+) {
   const apiKey = process.env.NVIDIA_API_KEY
   if (!apiKey) throw new Error('NVIDIA_API_KEY não configurada.')
 
-  const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-    method: 'POST',
-    signal: AbortSignal.timeout(55000),
-    headers: {
-      'content-type': 'application/json',
-      authorization: 'Bearer ' + apiKey,
-    },
-    body: JSON.stringify({
-      model: 'nvidia/nemotron-3-super-120b-a12b',
-      messages: [
-        { role: 'system', content: systemPrompt(currentHtml) },
-        { role: 'user', content: prompt + '\nResponda somente com JSON válido no formato: {"title":"...","summary":"...","html":"<!doctype html>..."}' },
-      ],
-      temperature: 1,
-      top_p: 0.95,
-      max_tokens: 7000,
-      chat_template_kwargs: {
-        enable_thinking: false,
-        force_nonempty_content: true,
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer ' + apiKey,
       },
-      stream: false,
-    }),
-  })
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: `Você é o motor de criação do ALTIV DEV.
+Crie ou edite um site profissional e responsivo.
+Retorne SOMENTE o HTML completo, começando com <!doctype html>.
+Inclua todo CSS dentro de <style> e JavaScript dentro de <script>.
+Não use markdown, não use blocos de código e não explique nada fora do HTML.
+Priorize qualidade visual, acessibilidade, responsividade e conteúdo solicitado.
+${currentHtml ? '\nSITE ATUAL PARA EDITAR:\n' + currentHtml.slice(0, 40000) : ''}`,
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.7,
+        top_p: 0.95,
+        max_tokens: 5500,
+        chat_template_kwargs: {
+          enable_thinking: false,
+          force_nonempty_content: true,
+        },
+        stream: false,
+      }),
+    })
 
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new Error('NVIDIA NIM falhou: ' + response.status + ' ' + detail.slice(0, 500))
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(`NVIDIA ${model} falhou: ${response.status} ${detail.slice(0, 400)}`)
+    }
+
+    const data = await response.json()
+    let html = String(data?.choices?.[0]?.message?.content ?? '').trim()
+    html = html.replace(/^\`\`\`html\s*/i, '').replace(/^\`\`\`\s*/i, '').replace(/\s*\`\`\`$/i, '').trim()
+
+    const doctypeIndex = html.toLowerCase().indexOf('<!doctype html>')
+    const htmlIndex = html.toLowerCase().indexOf('<html')
+    const startIndex = doctypeIndex >= 0 ? doctypeIndex : htmlIndex
+    if (startIndex > 0) html = html.slice(startIndex)
+
+    if (!html.includes('<html') || !html.includes('</html>') || html.length < 500) {
+      throw new Error(`NVIDIA ${model} retornou HTML incompleto.`)
+    }
+
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+    const title = titleMatch?.[1]?.trim() || 'Projeto ALTIV'
+    const summary = `Site atualizado com ${model.split('/').pop()} pela NVIDIA NIM.`
+
+    return {
+      model,
+      provider: 'nvidia-direct',
+      output: { title, summary, html },
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`NVIDIA ${model} excedeu ${Math.round(timeoutMs / 1000)}s.`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timer)
   }
-
-  const data = await response.json()
-  const text = data?.choices?.[0]?.message?.content
-  if (!text) throw new Error('NVIDIA NIM não retornou conteúdo.')
-  return { model: 'nvidia/nemotron-3-super-120b-a12b', provider: 'nvidia-direct', output: extractJson(text) }
 }
 
 async function generateWebsite(prompt: string, currentHtml?: string | null) {
   const errors: string[] = []
 
-  // Prefer direct NVIDIA when configured. This avoids wasting function time
-  // on a Gateway account that may not have credits enabled yet.
   if (process.env.NVIDIA_API_KEY) {
-    try {
-      return await generateWithNvidia(prompt, currentHtml)
-    } catch (error) {
-      errors.push('NVIDIA: ' + (error instanceof Error ? error.message : String(error)))
+    const directModels = [
+      { id: 'nvidia/nemotron-3.5-lightning-30b-a3b', timeout: 45000 },
+      { id: 'nvidia/nemotron-3-super-120b-a12b', timeout: 70000 },
+    ]
+
+    for (const candidate of directModels) {
+      try {
+        return await generateWithNvidia(prompt, currentHtml, candidate.id, candidate.timeout)
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error))
+      }
     }
+
+    // Do not waste more time on AI Gateway when NVIDIA direct is configured.
+    throw new Error('NVIDIA não concluiu a geração. ' + errors.join(' | '))
   }
 
   for (const model of GATEWAY_MODELS) {
@@ -104,7 +156,7 @@ async function generateWebsite(prompt: string, currentHtml?: string | null) {
       })
       return { model, provider: 'vercel-ai-gateway', output: result.output }
     } catch (error) {
-      errors.push('Gateway ' + model + ': ' + (error instanceof Error ? error.message : String(error)))
+      errors.push(error instanceof Error ? error.message : String(error))
     }
   }
 
