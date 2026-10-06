@@ -453,7 +453,9 @@ export default function StudioClient({
             <button className={panel === 'files' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('files')} title="Arquivos">▤</button>
             <button className={panel === 'code' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('code')} title="Código">&lt;/&gt;</button>
             <button className={panel === 'versions' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('versions')} title="Versões">▱</button>
-            <button className="topIcon" onClick={() => setDevice('desktop')} title="Desktop">▱</button>
+            <button className={device === 'desktop' ? 'topIcon active' : 'topIcon'} onClick={() => setDevice('desktop')} title="Desktop">▱</button>
+            <button className={device === 'tablet' ? 'topIcon active' : 'topIcon'} onClick={() => setDevice('tablet')} title="Tablet">▯</button>
+            <button className={device === 'mobile' ? 'topIcon active' : 'topIcon'} onClick={() => setDevice('mobile')} title="Mobile">▯</button>
             <button className="topIcon" onClick={() => setRefreshKey((v) => v + 1)} title="Atualizar">↻</button>
             <button className="pageSelectBtn" type="button">Página inicial <span>⌄</span></button>
           </div>
