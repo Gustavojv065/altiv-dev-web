@@ -9,6 +9,7 @@ type AgentResponse = {
   summary?: string
   html?: string
   revision?: number
+  versionNumber?: number
   error?: string
 }
 
@@ -151,16 +152,16 @@ export default function StudioClient({
           ])
         }
 
-        if (data.revision) {
+        if (data.versionNumber) {
           setVersions((current) => [
             {
               id: 'version-' + Date.now(),
-              version_number: data.revision!,
+              version_number: data.versionNumber!,
               summary: data.summary ?? 'Alteração gerada pela IA',
               created_at: new Date().toISOString(),
               metadata: { model: data.model },
             },
-            ...current.filter((v) => v.version_number !== data.revision),
+            ...current.filter((v) => v.version_number !== data.versionNumber),
           ])
         }
       }
