@@ -10,7 +10,7 @@ const websiteSchema = z.object({
   html: z.string().min(100),
 })
 
-const MODELS = [
+const GATEWAY_MODELS = [
   'nvidia/nemotron-3-super-120b-a12b',
   'alibaba/qwen3-coder-next',
 ] as const
@@ -29,14 +29,56 @@ Regras:
 - Não escreva explicações dentro do HTML.
 - Quando existir HTML atual, EDITE e preserve o que estiver bom; não recomece sem necessidade.
 - Atenda exatamente ao pedido do usuário.
-- O campo summary deve explicar em português, de forma curta, o que foi alterado.
+- Retorne JSON válido com as chaves title, summary e html.
 ${currentHtml ? '\nHTML ATUAL DO PROJETO:\n' + currentHtml.slice(0, 60000) : ''}`
 }
 
-async function generateWebsite(prompt: string, currentHtml?: string | null) {
-  let lastError: unknown = null
+function extractJson(text: string) {
+  const cleaned = text.trim().replace(/^\`\`\`json/i, '').replace(/^\`\`\`/, '').replace(/\`\`\`$/, '').trim()
+  const start = cleaned.indexOf('{')
+  const end = cleaned.lastIndexOf('}')
+  if (start < 0 || end < start) throw new Error('A IA não retornou JSON válido.')
+  return websiteSchema.parse(JSON.parse(cleaned.slice(start, end + 1)))
+}
 
-  for (const model of MODELS) {
+async function generateWithNvidia(prompt: string, currentHtml?: string | null) {
+  const apiKey = process.env.NVIDIA_API_KEY
+  if (!apiKey) throw new Error('NVIDIA_API_KEY não configurada.')
+
+  const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: 'Bearer ' + apiKey,
+    },
+    body: JSON.stringify({
+      model: 'nvidia/nemotron-3-super-120b-a12b',
+      messages: [
+        { role: 'system', content: systemPrompt(currentHtml) },
+        { role: 'user', content: prompt + '\nResponda somente com JSON válido no formato: {"title":"...","summary":"...","html":"<!doctype html>..."}' },
+      ],
+      temperature: 0.4,
+      top_p: 0.95,
+      max_tokens: 16384,
+      stream: false,
+    }),
+  })
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new Error('NVIDIA NIM falhou: ' + response.status + ' ' + detail.slice(0, 500))
+  }
+
+  const data = await response.json()
+  const text = data?.choices?.[0]?.message?.content
+  if (!text) throw new Error('NVIDIA NIM não retornou conteúdo.')
+  return { model: 'nvidia/nemotron-3-super-120b-a12b', provider: 'nvidia-direct', output: extractJson(text) }
+}
+
+async function generateWebsite(prompt: string, currentHtml?: string | null) {
+  const errors: string[] = []
+
+  for (const model of GATEWAY_MODELS) {
     try {
       const result = await generateText({
         model,
@@ -44,13 +86,19 @@ async function generateWebsite(prompt: string, currentHtml?: string | null) {
         prompt,
         output: Output.object({ schema: websiteSchema }),
       })
-      return { model, output: result.output }
+      return { model, provider: 'vercel-ai-gateway', output: result.output }
     } catch (error) {
-      lastError = error
+      errors.push(error instanceof Error ? error.message : String(error))
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('Nenhum modelo conseguiu gerar o site.')
+  try {
+    return await generateWithNvidia(prompt, currentHtml)
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error))
+  }
+
+  throw new Error('Nenhum provedor conseguiu gerar o site. ' + errors.join(' | '))
 }
 
 export async function POST(req: NextRequest) {
@@ -97,7 +145,6 @@ export async function POST(req: NextRequest) {
       .insert({ owner_id: ownerId, project_id: projectId, title: prompt.slice(0, 80) })
       .select('id')
       .single()
-
     if (created.error || !created.data) {
       return NextResponse.json({ ok: false, error: created.error?.message ?? 'Falha ao criar conversa.' }, { status: 500 })
     }
@@ -185,7 +232,7 @@ export async function POST(req: NextRequest) {
       version_number: (lastVersion?.version_number ?? 0) + 1,
       source_type: 'snapshot',
       summary: generated.output.summary,
-      metadata: { file: 'index.html', revision, model: generated.model, run_id: runId },
+      metadata: { file: 'index.html', revision, model: generated.model, provider: generated.provider, run_id: runId },
     })
 
     await supabase.from('messages').insert({
@@ -194,7 +241,7 @@ export async function POST(req: NextRequest) {
       role: 'assistant',
       content: generated.output.summary,
       model: generated.model,
-      parts: [{ type: 'generated-file', path: 'index.html', revision }],
+      parts: [{ type: 'generated-file', path: 'index.html', revision, provider: generated.provider }],
     })
 
     await supabase.from('project_memories').insert({
@@ -204,7 +251,7 @@ export async function POST(req: NextRequest) {
       kind: 'decision',
       content: generated.output.summary,
       importance: 70,
-      metadata: { source: 'generation', run_id: runId, revision },
+      metadata: { source: 'generation', run_id: runId, revision, provider: generated.provider },
     })
 
     await supabase
@@ -236,6 +283,7 @@ export async function POST(req: NextRequest) {
       runId,
       task,
       model: generated.model,
+      provider: generated.provider,
       summary: generated.output.summary,
       html: generated.output.html,
       revision,
