@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { classifyTask, PIPELINE } from '@/lib/agent/pipeline'
 import { createClient } from '@/lib/supabase/server'
 
+export const maxDuration = 300
+
 const websiteSchema = z.object({
   title: z.string().min(1),
   summary: z.string().min(1),
@@ -78,7 +80,7 @@ ${currentHtml ? '\nSITE ATUAL PARA EDITAR:\n' + currentHtml.slice(0, 40000) : ''
         ],
         temperature: 0.7,
         top_p: 0.95,
-        max_tokens: 5500,
+        max_tokens: 10000,
         chat_template_kwargs: {
           enable_thinking: false,
           force_nonempty_content: true,
@@ -101,9 +103,15 @@ ${currentHtml ? '\nSITE ATUAL PARA EDITAR:\n' + currentHtml.slice(0, 40000) : ''
     const startIndex = doctypeIndex >= 0 ? doctypeIndex : htmlIndex
     if (startIndex > 0) html = html.slice(startIndex)
 
-    if (!html.includes('<html') || !html.includes('</html>') || html.length < 500) {
-      throw new Error(`NVIDIA ${model} retornou HTML incompleto.`)
+    if (!html.toLowerCase().includes('<html') || html.length < 500) {
+      throw new Error(`NVIDIA ${model} retornou conteúdo insuficiente.`)
     }
+
+    // Models can occasionally omit only the final closing tags after producing
+    // an otherwise usable page. Preserve the generated work instead of
+    // discarding it, and make the document renderable in the preview.
+    if (!html.toLowerCase().includes('</body>')) html += '\n</body>'
+    if (!html.toLowerCase().includes('</html>')) html += '\n</html>'
 
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
     const title = titleMatch?.[1]?.trim() || 'Projeto ALTIV'
@@ -129,8 +137,8 @@ async function generateWebsite(prompt: string, currentHtml?: string | null) {
 
   if (process.env.NVIDIA_API_KEY) {
     const directModels = [
-      { id: 'nvidia/nemotron-3.5-lightning-30b-a3b', timeout: 45000 },
-      { id: 'nvidia/nemotron-3-super-120b-a12b', timeout: 70000 },
+      { id: 'nvidia/nemotron-3.5-lightning-30b-a3b', timeout: 90000 },
+      { id: 'nvidia/nemotron-3-super-120b-a12b', timeout: 150000 },
     ]
 
     for (const candidate of directModels) {
