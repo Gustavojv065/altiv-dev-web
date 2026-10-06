@@ -10,6 +10,8 @@ type AgentResponse = {
   html?: string
   revision?: number
   versionNumber?: number
+  qualityScore?: number
+  qualityIssues?: string[]
   error?: string
 }
 
@@ -355,6 +357,12 @@ export default function StudioClient({
                     <article className="messageBubble assistant working">
                       <div className="messageMeta"><span>ALTIV</span><span className="liveDot">gerando</span></div>
                       <div className="workingLine"><i/><i/><i/> Gerando e salvando a próxima versão…</div>
+                    </article>
+                  )}
+                  {result?.qualityScore !== undefined && result.ok && (
+                    <article className="messageBubble quality">
+                      <div className="messageMeta"><span>Quality Gate</span><span>{result.qualityScore}/100</span></div>
+                      <p>{result.qualityScore >= 84 ? 'Aprovado pelo QA automático do ALTIV.' : 'Resultado salvo com pontos de melhoria identificados.'}</p>
                     </article>
                   )}
                   {result?.error && (
