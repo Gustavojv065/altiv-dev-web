@@ -234,7 +234,10 @@ export default function StudioClient({
               <small>{status}{revision ? ' · revisão ' + revision : ''}</small>
             </div>
           </div>
-          <span className="panelLabel">{panel === 'chat' ? 'Construir' : panel === 'files' ? 'Arquivos' : 'Histórico'}</span>
+          <div className="panelTabs">
+            <button className={panel === 'chat' ? 'active' : ''} onClick={() => setPanel('chat')}>Construir</button>
+            <button className={panel === 'versions' ? 'active' : ''} onClick={() => setPanel('versions')}>Histórico</button>
+          </div>
         </div>
 
         {panel === 'chat' && (
@@ -339,20 +342,22 @@ export default function StudioClient({
             <span className="previewStatus"><i/> {previewHtml ? 'Atualizada' : 'Aguardando geração'}</span>
           </div>
 
-          <div className="deviceSwitch">
-            <button className={device === 'desktop' ? 'active' : ''} onClick={() => setDevice('desktop')} title="Desktop">▱</button>
-            <button className={device === 'tablet' ? 'active' : ''} onClick={() => setDevice('tablet')} title="Tablet">▯</button>
-            <button className={device === 'mobile' ? 'active' : ''} onClick={() => setDevice('mobile')} title="Mobile">▯</button>
+          <div className="previewCenter">
+            <div className="deviceSwitch">
+              <button className={device === 'desktop' ? 'active' : ''} onClick={() => setDevice('desktop')} title="Desktop">▱</button>
+              <button className={device === 'tablet' ? 'active' : ''} onClick={() => setDevice('tablet')} title="Tablet">▯</button>
+              <button className={device === 'mobile' ? 'active' : ''} onClick={() => setDevice('mobile')} title="Mobile">▯</button>
+            </div>
+            <span className="pageSelect">Página inicial⌄</span>
           </div>
 
           <div className="previewActions">
             <button onClick={() => setRefreshKey((v) => v + 1)} title="Atualizar">↻</button>
-            <button disabled title="GitHub será conectado por projeto">GitHub</button>
             <button className="publishBtn" disabled title="Deploy por projeto entra na próxima etapa">Publicar</button>
           </div>
         </header>
 
-        <div className="previewStage">
+        <div className={'previewStage fill-' + device}>
           <div className={deviceClass}>
             {previewHtml ? (
               <iframe
@@ -376,12 +381,6 @@ export default function StudioClient({
             )}
           </div>
         </div>
-
-        <footer className="previewFooter">
-          <span><i className="online"/> Preview real</span>
-          <span>index.html</span>
-          <span>Supabase · r{revision || 0}</span>
-        </footer>
       </section>
     </main>
   )
