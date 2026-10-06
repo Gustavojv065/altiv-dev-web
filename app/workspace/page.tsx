@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { logout } from '@/app/login/actions'
+import { createProject } from './actions'
 
 export default async function WorkspacePage() {
   const supabase = await createClient()
@@ -17,9 +18,9 @@ export default async function WorkspacePage() {
         <form action={logout}><button className="authSecondary">Sair</button></form>
       </header>
       <section className="workspacePanel">
-        <div className="workspacePanelHead"><div><b>Projetos</b><span>{projects?.length ?? 0} projeto(s)</span></div><a href="/" className="authPrimary linkButton">+ Novo projeto</a></div>
+        <div className="workspacePanelHead"><div><b>Projetos</b><span>{projects?.length ?? 0} projeto(s)</span></div><form action={createProject}><button className="authPrimary">+ Novo projeto</button></form></div>
         <div className="projectList">
-          {(projects?.length ?? 0) === 0 ? <div className="emptyState"><h2>Nenhum projeto ainda</h2><p>Volte ao estúdio e peça para a IA criar seu primeiro site.</p></div> : projects!.map((project) => <div className="projectRow" key={project.id}><div><strong>{project.name}</strong><small>{project.status}</small></div><span>{new Date(project.updated_at).toLocaleString('pt-BR')}</span></div>)}
+          {(projects?.length ?? 0) === 0 ? <div className="emptyState"><h2>Nenhum projeto ainda</h2><p>Volte ao estúdio e peça para a IA criar seu primeiro site.</p></div> : projects!.map((project) => <a className="projectRow" key={project.id} href={"/studio/" + project.id} style={{textDecoration:"none", color:"inherit"}}><div><strong>{project.name}</strong><small>{project.status}</small></div><span>{new Date(project.updated_at).toLocaleString('pt-BR')}</span></a>)}
         </div>
       </section>
     </main>
