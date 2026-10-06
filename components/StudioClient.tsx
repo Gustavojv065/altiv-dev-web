@@ -29,7 +29,7 @@ type Version = {
   metadata?: Record<string, unknown> | null
 }
 
-type Panel = 'chat' | 'files' | 'versions'
+type Panel = 'chat' | 'files' | 'code' | 'versions'
 type Device = 'desktop' | 'tablet' | 'mobile'
 
 function timeLabel(value: string) {
@@ -68,6 +68,10 @@ export default function StudioClient({
   const [result, setResult] = useState<AgentResponse | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [restoring, setRestoring] = useState<number | null>(null)
+  const [codeDraft, setCodeDraft] = useState(initialHtml)
+  const [savingCode, setSavingCode] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
   const feedRef = useRef<HTMLDivElement>(null)
 
   const status = useMemo(() => {
@@ -79,6 +83,10 @@ export default function StudioClient({
   useEffect(() => {
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight })
   }, [messages, running, result])
+
+  useEffect(() => {
+    setCodeDraft(previewHtml)
+  }, [previewHtml])
 
   useEffect(() => {
     if (!running) return
@@ -211,6 +219,82 @@ export default function StudioClient({
     }
   }
 
+  async function saveCode() {
+    if (savingCode || !codeDraft.trim()) return
+    setSavingCode(true)
+    setResult(null)
+    try {
+      const response = await fetch('/api/projects/' + projectId + '/code', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ html: codeDraft }),
+      })
+      const data = await response.json()
+      if (!response.ok || !data?.ok) {
+        setResult({ ok: false, error: data?.error ?? 'Não foi possível salvar o código.' })
+        return
+      }
+
+      setPreviewHtml(data.html)
+      setRevision(Number(data.revision))
+      setRefreshKey((v) => v + 1)
+      setVersions((current) => [
+        {
+          id: 'manual-' + Date.now(),
+          version_number: Number(data.versionNumber),
+          summary: 'Edição manual do código',
+          created_at: new Date().toISOString(),
+          metadata: { source: 'code-editor' },
+        },
+        ...current,
+      ])
+    } catch (error) {
+      setResult({ ok: false, error: error instanceof Error ? error.message : 'Falha ao salvar código.' })
+    } finally {
+      setSavingCode(false)
+    }
+  }
+
+  function openPreview() {
+    if (!previewHtml) return
+    const blob = new Blob([previewHtml], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank', 'noopener,noreferrer')
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
+  async function publishProject() {
+    if (publishing || !previewHtml) return
+    setPublishing(true)
+    setResult(null)
+    try {
+      const response = await fetch('/api/projects/' + projectId + '/publish', { method: 'POST' })
+      const data = await response.json()
+      if (!response.ok || !data?.ok) {
+        setResult({ ok: false, error: data?.error ?? 'Não foi possível publicar.' })
+        return
+      }
+
+      const url = data.url as string
+      setPublishedUrl(url)
+      setMessages((current) => [
+        ...current,
+        {
+          id: 'publish-' + Date.now(),
+          role: 'assistant',
+          content: 'Projeto publicado com sucesso.',
+          model: null,
+          created_at: new Date().toISOString(),
+        },
+      ])
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      setResult({ ok: false, error: error instanceof Error ? error.message : 'Falha ao publicar.' })
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   const deviceClass = 'previewViewport ' + device
 
   return (
@@ -219,8 +303,9 @@ export default function StudioClient({
         <a className="railLogo" href="/workspace" title="ALTIV DEV">A</a>
         <div className="railNav">
           <button className={panel === 'chat' ? 'active' : ''} onClick={() => setPanel('chat')} title="Chat"><span>✦</span><small>Chat</small></button>
-          <button className={panel === 'files' ? 'active' : ''} onClick={() => setPanel('files')} title="Arquivos"><span>⌘</span><small>Arquivos</small></button>
-          <button className={panel === 'versions' ? 'active' : ''} onClick={() => setPanel('versions')} title="Versões"><span>↺</span><small>Versões</small></button>
+          <button className={panel === 'files' ? 'active' : ''} onClick={() => setPanel('files')} title="Arquivos"><span>▤</span><small>Arquivos</small></button>
+          <button className={panel === 'code' ? 'active' : ''} onClick={() => setPanel('code')} title="Código"><span>&lt;/&gt;</span><small>Código</small></button>
+          <button className={panel === 'versions' ? 'active' : ''} onClick={() => setPanel('versions')} title="Versões"><span>▱</span><small>Versões</small></button>
         </div>
         <a className="railBack" href="/workspace" title="Projetos">←</a>
       </aside>
@@ -317,6 +402,27 @@ export default function StudioClient({
           </div>
         )}
 
+        {panel === 'code' && (
+          <div className="sideContent codeEditorPanel">
+            <div className="sideIntro">
+              <h2>Código</h2>
+              <p>Edite o HTML real do projeto. Salvar cria uma nova versão automaticamente.</p>
+            </div>
+            <div className="codeEditorHead">
+              <span>index.html</span>
+              <button onClick={saveCode} disabled={savingCode || !codeDraft.trim()}>
+                {savingCode ? 'Salvando…' : 'Salvar código'}
+              </button>
+            </div>
+            <textarea
+              className="fullCodeEditor"
+              value={codeDraft}
+              onChange={(e) => setCodeDraft(e.target.value)}
+              spellCheck={false}
+            />
+          </div>
+        )}
+
         {panel === 'versions' && (
           <div className="sideContent">
             <div className="sideIntro"><h2>Versões</h2><p>Cada geração salva uma revisão no Supabase.</p></div>
@@ -336,24 +442,28 @@ export default function StudioClient({
       </section>
 
       <section className="studioPreview">
-        <header className="previewToolbar">
-          <div className="previewLeft">
-            <span className="previewTitle">Visualização</span>
-            <span className="previewStatus"><i/> {previewHtml ? 'Atualizada' : 'Aguardando geração'}</span>
+        <header className="previewToolbar lovableTopbar">
+          <div className="topbarLeft">
+            <button className="topIcon" onClick={() => setPanel('chat')} title="Construir">☰</button>
+            <span className="topProject">{projectName}</span>
           </div>
 
-          <div className="previewCenter">
-            <div className="deviceSwitch">
-              <button className={device === 'desktop' ? 'active' : ''} onClick={() => setDevice('desktop')} title="Desktop">▱</button>
-              <button className={device === 'tablet' ? 'active' : ''} onClick={() => setDevice('tablet')} title="Tablet">▯</button>
-              <button className={device === 'mobile' ? 'active' : ''} onClick={() => setDevice('mobile')} title="Mobile">▯</button>
-            </div>
-            <span className="pageSelect">Página inicial⌄</span>
+          <div className="topbarCenter">
+            <button className="viewTab active" title="Visualização">◎ <span>Visualização</span></button>
+            <button className={panel === 'files' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('files')} title="Arquivos">▤</button>
+            <button className={panel === 'code' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('code')} title="Código">&lt;/&gt;</button>
+            <button className={panel === 'versions' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('versions')} title="Versões">▱</button>
+            <button className="topIcon" onClick={() => setDevice('desktop')} title="Desktop">▱</button>
+            <button className="topIcon" onClick={() => setRefreshKey((v) => v + 1)} title="Atualizar">↻</button>
+            <button className="pageSelectBtn" type="button">Página inicial <span>⌄</span></button>
           </div>
 
-          <div className="previewActions">
-            <button onClick={() => setRefreshKey((v) => v + 1)} title="Atualizar">↻</button>
-            <button className="publishBtn" disabled title="Deploy por projeto entra na próxima etapa">Publicar</button>
+          <div className="topbarRight">
+            <button className="topIcon" onClick={openPreview} disabled={!previewHtml} title="Abrir preview em nova aba">↗</button>
+            {publishedUrl && <a className="topIcon publishedLink" href={publishedUrl} target="_blank" rel="noreferrer" title="Abrir site publicado">●</a>}
+            <button className="publishBtn" onClick={publishProject} disabled={publishing || !previewHtml}>
+              {publishing ? 'Publicando…' : 'Publicar'}
+            </button>
           </div>
         </header>
 
