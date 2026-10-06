@@ -230,3 +230,221 @@
 }
 .restoreBtn:hover{border-color:#465264;background:#1a2028}
 .restoreBtn:disabled{opacity:.45;cursor:not-allowed}
+
+
+/* ===== v0.4 Full-canvas preview: Lovable-like composition ===== */
+.studioShell{
+  grid-template-columns:56px 340px minmax(0,1fr);
+}
+.studioRail{
+  padding:8px 5px;
+}
+.railLogo{width:34px;height:34px;border-radius:9px;font-size:13px}
+.railNav{gap:4px}
+.railNav button{padding:7px 3px;border-radius:8px}
+.railNav button span{font-size:13px}
+.railNav button small{display:none}
+.railBack{width:32px;height:32px}
+
+.studioPanel{
+  background:#101214;
+}
+.studioProjectHead{
+  height:48px;
+  min-height:48px;
+  padding:0 12px;
+}
+.projectIdentity strong{font-size:11px}
+.projectIdentity small{font-size:8px}
+.projectDot{width:6px;height:6px}
+.panelLabel{display:none}
+.panelTabs{display:flex;align-items:center;gap:4px}
+.panelTabs button{
+  border:0;background:transparent;color:#687385;
+  font-size:9px;padding:6px 7px;border-radius:7px;cursor:pointer
+}
+.panelTabs button.active{background:#1a1f25;color:#f3f5f7}
+
+.chatFeed{
+  padding:12px 12px 138px;
+}
+.messageStack{gap:9px}
+.messageBubble{
+  border-radius:11px;
+  padding:10px 11px;
+  background:#171a1e;
+  border-color:#24292f;
+}
+.messageBubble.user{margin-left:14px}
+.messageBubble.assistant{margin-right:14px;background:#121519}
+.messageMeta{font-size:8px}
+.messageBubble p{font-size:11px;line-height:1.45;margin-top:6px}
+.messageBubble small{font-size:8px}
+.chatWelcome{margin-top:6vh;max-width:285px}
+.chatWelcome h1{font-size:26px}
+.chatWelcome p{font-size:12px}
+.promptSuggestions{gap:5px;margin-top:16px}
+.promptSuggestions button{font-size:10px;padding:6px 8px;border-radius:7px}
+.lovableComposer{
+  left:10px;right:10px;bottom:10px;
+  padding:8px;border-radius:13px;
+}
+.lovableComposer textarea{
+  min-height:70px;
+  font-size:11px;
+}
+.composerTools{font-size:8px;gap:5px}
+.composerTools button{width:26px;height:26px}
+.buildButton{font-size:10px;padding:8px 10px;border-radius:8px}
+
+.studioPreview{
+  grid-template-rows:48px minmax(0,1fr);
+  background:#121417;
+}
+.previewToolbar{
+  padding:0 9px;
+  grid-template-columns:1fr auto 1fr;
+  background:#17191c;
+  border-bottom:1px solid #262a30;
+}
+.previewTitle{font-size:10px}
+.previewStatus{font-size:8px}
+.previewCenter{display:flex;align-items:center;gap:8px}
+.pageSelect{
+  font-size:9px;color:#a0a8b3;
+  padding:5px 8px;
+  border-radius:7px;
+  border:1px solid #2a2f35;
+  background:#111315;
+}
+.deviceSwitch{
+  padding:2px;border-radius:8px;background:#111315;border-color:#2a2f35
+}
+.deviceSwitch button{width:28px;height:24px;font-size:10px;border-radius:6px}
+.previewActions button{font-size:9px;padding:6px 8px;border-radius:7px}
+.previewActions .publishBtn{padding:6px 10px}
+
+.previewStage{
+  padding:0 !important;
+  display:block !important;
+  overflow:hidden;
+  background:#fff !important;
+}
+.previewViewport{
+  width:100% !important;
+  height:100% !important;
+  min-height:0 !important;
+  max-width:none !important;
+  max-height:none !important;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  background:#fff;
+  transition:none;
+}
+.previewViewport.desktop,
+.previewViewport.tablet,
+.previewViewport.mobile{
+  width:100% !important;
+  height:100% !important;
+  min-height:0 !important;
+  border-radius:0 !important;
+}
+.previewViewport iframe{
+  width:100%;
+  height:100%;
+  min-height:100%;
+}
+.previewEmpty{min-height:100%;height:100%}
+.previewFooter{display:none !important}
+
+/* Device emulation happens inside the full preview area instead of shrinking
+   the whole preview into a floating card. */
+.previewStage.fill-tablet,
+.previewStage.fill-mobile{
+  background:#0f1114 !important;
+  display:grid !important;
+  place-items:stretch center !important;
+}
+.previewStage.fill-tablet .previewViewport{
+  width:min(820px,100%) !important;
+  height:100% !important;
+  border-left:1px solid #2d3238 !important;
+  border-right:1px solid #2d3238 !important;
+}
+.previewStage.fill-mobile .previewViewport{
+  width:min(430px,100%) !important;
+  height:100% !important;
+  border-left:1px solid #2d3238 !important;
+  border-right:1px solid #2d3238 !important;
+}
+
+/* On phones: preview becomes the main canvas, edge-to-edge like Lovable.
+   The chat stays above it and can scroll naturally. */
+@media(max-width:760px){
+  body{overflow:auto}
+  .studioShell{
+    height:auto;
+    min-height:100vh;
+    display:grid;
+    grid-template-columns:1fr;
+    grid-template-rows:46px auto minmax(72vh,1fr);
+    overflow:visible;
+  }
+  .studioRail{
+    height:46px;
+    position:sticky;
+    top:0;
+    z-index:40;
+    padding:5px 8px;
+  }
+  .railLogo{width:32px;height:32px}
+  .studioPanel{
+    height:auto;
+    min-height:46vh;
+    border-bottom:1px solid #24292f;
+  }
+  .studioProjectHead{
+    height:46px;min-height:46px
+  }
+  .chatFeed{
+    max-height:46vh;
+    min-height:260px;
+    padding-bottom:126px
+  }
+  .lovableComposer{
+    position:sticky;
+    bottom:8px;
+    margin-top:-116px;
+  }
+  .studioPreview{
+    min-height:78vh;
+    height:78vh;
+    grid-template-rows:46px minmax(0,1fr);
+  }
+  .previewToolbar{
+    position:sticky;
+    top:46px;
+    z-index:25;
+  }
+  .previewLeft .previewStatus{display:none}
+  .previewCenter{gap:4px}
+  .pageSelect{display:none}
+  .deviceSwitch{display:flex}
+  .previewActions .publishBtn{display:block}
+  .previewStage{
+    width:100%;
+    height:100%;
+  }
+  .previewStage.fill-desktop .previewViewport,
+  .previewStage.fill-tablet .previewViewport,
+  .previewStage.fill-mobile .previewViewport{
+    width:100% !important;
+    height:100% !important;
+    border:0 !important;
+  }
+}
+
+@media(min-width:1400px){
+  .studioShell{grid-template-columns:56px 360px minmax(0,1fr)}
+}
