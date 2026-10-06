@@ -17,5 +17,21 @@ export default async function StudioPage({ params }: { params: Promise<{ id: str
     .maybeSingle()
 
   if (!project) notFound()
-  return <StudioClient projectId={project.id} projectName={project.name} />
+
+  const { data: file } = await supabase
+    .from('project_files')
+    .select('content,revision')
+    .eq('project_id', id)
+    .eq('owner_id', ownerId)
+    .eq('path', 'index.html')
+    .maybeSingle()
+
+  return (
+    <StudioClient
+      projectId={project.id}
+      projectName={project.name}
+      initialHtml={file?.content ?? ''}
+      initialRevision={file?.revision ?? 0}
+    />
+  )
 }
