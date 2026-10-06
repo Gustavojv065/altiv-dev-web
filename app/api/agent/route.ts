@@ -367,6 +367,7 @@ export async function POST(req: NextRequest) {
       summary: generated.output.summary,
       html: generated.output.html,
       revision,
+      versionNumber,
       persisted: true,
       realGeneration: true,
     })
