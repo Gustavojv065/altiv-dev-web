@@ -66,6 +66,7 @@ export default function StudioClient({
   const [versions, setVersions] = useState<Version[]>(initialVersions)
   const [result, setResult] = useState<AgentResponse | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [restoring, setRestoring] = useState<number | null>(null)
   const feedRef = useRef<HTMLDivElement>(null)
 
   const status = useMemo(() => {
@@ -167,6 +168,45 @@ export default function StudioClient({
       setResult({ ok: false, error: error instanceof Error ? error.message : 'Falha de rede.' })
     } finally {
       setRunning(false)
+    }
+  }
+
+  async function restoreVersion(versionNumber: number) {
+    if (running || restoring) return
+    setRestoring(versionNumber)
+    setResult(null)
+
+    try {
+      const response = await fetch('/api/projects/' + projectId + '/restore', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ versionNumber }),
+      })
+      const data = await response.json()
+
+      if (!response.ok || !data?.ok) {
+        setResult({ ok: false, error: data?.error ?? 'Não foi possível restaurar a versão.' })
+        return
+      }
+
+      setPreviewHtml(data.html)
+      setRevision(Number(data.revision))
+      setRefreshKey((v) => v + 1)
+      setPanel('chat')
+      setMessages((current) => [
+        ...current,
+        {
+          id: 'restore-' + Date.now(),
+          role: 'assistant',
+          content: 'Versão r' + versionNumber + ' restaurada no preview.',
+          model: null,
+          created_at: new Date().toISOString(),
+        },
+      ])
+    } catch (error) {
+      setResult({ ok: false, error: error instanceof Error ? error.message : 'Falha ao restaurar versão.' })
+    } finally {
+      setRestoring(null)
     }
   }
 
@@ -281,6 +321,9 @@ export default function StudioClient({
                 <article className="versionCard" key={version.id}>
                   <div><span className="versionBadge">r{version.version_number}</span><time>{new Date(version.created_at).toLocaleString('pt-BR')}</time></div>
                   <p>{version.summary || 'Alteração salva'}</p>
+                  <button className="restoreBtn" onClick={() => restoreVersion(version.version_number)} disabled={restoring !== null}>
+                    {restoring === version.version_number ? 'Restaurando…' : 'Restaurar esta versão'}
+                  </button>
                 </article>
               ))}
             </div>
