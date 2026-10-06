@@ -462,6 +462,20 @@ export async function POST(req: NextRequest) {
     content: prompt,
   })
 
+  const { data: lockToken, error: lockError } = await supabase.rpc('acquire_project_agent_lock', {
+    p_project_id: projectId,
+    p_owner_id: ownerId,
+    p_ttl_seconds: 360,
+  })
+
+  if (lockError || !lockToken) {
+    return NextResponse.json({
+      ok: false,
+      error: 'Já existe uma execução ativa neste projeto. Aguarde ela terminar antes de enviar outro pedido.',
+      locked: true,
+    }, { status: 409 })
+  }
+
   const runInsert = await supabase
     .from('agent_runs')
     .insert({
@@ -477,6 +491,11 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (runInsert.error || !runInsert.data) {
+    await supabase.rpc('release_project_agent_lock', {
+      p_project_id: projectId,
+      p_owner_id: ownerId,
+      p_token: lockToken,
+    })
     return NextResponse.json({ ok: false, error: runInsert.error?.message ?? 'Falha ao registrar execução.' }, { status: 500 })
   }
 
@@ -696,6 +715,12 @@ export async function POST(req: NextRequest) {
       .eq('id', projectId)
       .eq('owner_id', ownerId)
 
+    await supabase.rpc('release_project_agent_lock', {
+      p_project_id: projectId,
+      p_owner_id: ownerId,
+      p_token: lockToken,
+    })
+
     return NextResponse.json({
       ok: true,
       projectId,
@@ -726,6 +751,12 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', runId)
       .eq('owner_id', ownerId)
+
+    await supabase.rpc('release_project_agent_lock', {
+      p_project_id: projectId,
+      p_owner_id: ownerId,
+      p_token: lockToken,
+    })
 
     return NextResponse.json({ ok: false, error: message, runId }, { status: 500 })
   }
