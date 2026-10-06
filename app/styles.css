@@ -223,3 +223,10 @@
   .projectsOverview{grid-template-columns:1fr}.projectGrid{grid-template-columns:1fr}
   .previewActions .publishBtn{display:none}
 }
+
+.restoreBtn{
+  width:100%;margin-top:10px;border:1px solid #2d3541;background:#151a21;color:#c9d1dc;
+  border-radius:9px;padding:8px 10px;font-size:10px;font-weight:700;cursor:pointer
+}
+.restoreBtn:hover{border-color:#465264;background:#1a2028}
+.restoreBtn:disabled{opacity:.45;cursor:not-allowed}
