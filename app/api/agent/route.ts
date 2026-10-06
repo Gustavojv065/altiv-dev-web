@@ -296,13 +296,23 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle()
 
+    const versionNumber = (lastVersion?.version_number ?? 0) + 1
+
     await supabase.from('project_versions').insert({
       owner_id: ownerId,
       project_id: projectId,
-      version_number: (lastVersion?.version_number ?? 0) + 1,
+      version_number: versionNumber,
       source_type: 'snapshot',
       summary: generated.output.summary,
       metadata: { file: 'index.html', revision, model: generated.model, provider: generated.provider, run_id: runId },
+    })
+
+    await supabase.from('project_version_files').insert({
+      owner_id: ownerId,
+      project_id: projectId,
+      version_number: versionNumber,
+      path: 'index.html',
+      content: generated.output.html,
     })
 
     await supabase.from('messages').insert({
