@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 
 type AgentResponse = {
   ok: boolean
@@ -48,6 +48,36 @@ export default function StudioClient({
     () => running ? 'IA gerando o site real' : previewHtml ? 'Projeto pronto para editar' : 'Pronto para construir',
     [running, previewHtml]
   )
+
+  useEffect(() => {
+    if (!running) return
+
+    let stopped = false
+    const poll = async () => {
+      try {
+        const response = await fetch('/api/projects/' + projectId + '/preview', { cache: 'no-store' })
+        const data = await response.json()
+        if (!stopped && data?.ok && Number(data.revision ?? 0) > revision && data.html) {
+          setPreviewHtml(data.html)
+          setRevision(Number(data.revision))
+          setResult((current) => current ?? {
+            ok: true,
+            summary: 'Preview atualizado assim que a geração foi salva.',
+            revision: Number(data.revision),
+          })
+        }
+      } catch {
+        // Keep the main generation request in control; polling is only a live UX fallback.
+      }
+    }
+
+    poll()
+    const timer = window.setInterval(poll, 5000)
+    return () => {
+      stopped = true
+      window.clearInterval(timer)
+    }
+  }, [running, projectId, revision])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -131,7 +161,7 @@ export default function StudioClient({
               <div className="conversation">
                 <small>ÚLTIMO PEDIDO</small>
                 <p>{lastPrompt}</p>
-                {running && <small>Gerando código real com IA…</small>}
+                {running && <small>Gerando código real com IA… o preview atualiza automaticamente assim que o arquivo for salvo.</small>}
                 {result?.ok && <small>✓ {result.summary} · revisão {result.revision} · {result.model}</small>}
                 {result?.error && <small style={{color:'#ff9fac'}}>Erro: {result.error}</small>}
               </div>
