@@ -71,11 +71,45 @@ export async function POST(
     return NextResponse.json({ ok: false, error: writeError.message }, { status: 500 })
   }
 
+  const { data: lastVersion } = await supabase
+    .from('project_versions')
+    .select('version_number')
+    .eq('project_id', id)
+    .eq('owner_id', ownerId)
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const newVersionNumber = (lastVersion?.version_number ?? 0) + 1
+
+  await supabase.from('project_versions').insert({
+    owner_id: ownerId,
+    project_id: id,
+    version_number: newVersionNumber,
+    source_type: 'snapshot',
+    summary: 'Restauração da versão r' + versionNumber,
+    metadata: { restored_from: versionNumber, revision },
+  })
+
+  await supabase.from('project_version_files').insert({
+    owner_id: ownerId,
+    project_id: id,
+    version_number: newVersionNumber,
+    path: 'index.html',
+    content: snapshot.content,
+  })
+
   await supabase
     .from('projects')
     .update({ status: 'ready', updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('owner_id', ownerId)
 
-  return NextResponse.json({ ok: true, html: snapshot.content, revision, restoredVersion: versionNumber })
+  return NextResponse.json({
+    ok: true,
+    html: snapshot.content,
+    revision,
+    restoredVersion: versionNumber,
+    versionNumber: newVersionNumber,
+  })
 }
