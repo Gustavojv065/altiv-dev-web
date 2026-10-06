@@ -47,6 +47,7 @@ async function generateWithNvidia(prompt: string, currentHtml?: string | null) {
 
   const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
     method: 'POST',
+    signal: AbortSignal.timeout(55000),
     headers: {
       'content-type': 'application/json',
       authorization: 'Bearer ' + apiKey,
@@ -57,9 +58,13 @@ async function generateWithNvidia(prompt: string, currentHtml?: string | null) {
         { role: 'system', content: systemPrompt(currentHtml) },
         { role: 'user', content: prompt + '\nResponda somente com JSON válido no formato: {"title":"...","summary":"...","html":"<!doctype html>..."}' },
       ],
-      temperature: 0.4,
+      temperature: 1,
       top_p: 0.95,
-      max_tokens: 16384,
+      max_tokens: 7000,
+      chat_template_kwargs: {
+        enable_thinking: false,
+        force_nonempty_content: true,
+      },
       stream: false,
     }),
   })
@@ -78,6 +83,16 @@ async function generateWithNvidia(prompt: string, currentHtml?: string | null) {
 async function generateWebsite(prompt: string, currentHtml?: string | null) {
   const errors: string[] = []
 
+  // Prefer direct NVIDIA when configured. This avoids wasting function time
+  // on a Gateway account that may not have credits enabled yet.
+  if (process.env.NVIDIA_API_KEY) {
+    try {
+      return await generateWithNvidia(prompt, currentHtml)
+    } catch (error) {
+      errors.push('NVIDIA: ' + (error instanceof Error ? error.message : String(error)))
+    }
+  }
+
   for (const model of GATEWAY_MODELS) {
     try {
       const result = await generateText({
@@ -85,17 +100,12 @@ async function generateWebsite(prompt: string, currentHtml?: string | null) {
         system: systemPrompt(currentHtml),
         prompt,
         output: Output.object({ schema: websiteSchema }),
+        abortSignal: AbortSignal.timeout(45000),
       })
       return { model, provider: 'vercel-ai-gateway', output: result.output }
     } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error))
+      errors.push('Gateway ' + model + ': ' + (error instanceof Error ? error.message : String(error)))
     }
-  }
-
-  try {
-    return await generateWithNvidia(prompt, currentHtml)
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error))
   }
 
   throw new Error('Nenhum provedor conseguiu gerar o site. ' + errors.join(' | '))
