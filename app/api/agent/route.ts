@@ -90,6 +90,9 @@ PADRÃO VISUAL OBRIGATÓRIO
 - Responsividade real em 1440px, 1024px, 768px e 390px.
 - Em mobile, reorganize conteúdo; não apenas reduza tudo.
 - Evite excesso de bordas, gradientes aleatórios, sombras pesadas e aparência "IA genérica".
+- NÃO associe automaticamente "premium" a uma página inteira escura. Salvo se o usuário pedir explicitamente um site predominantemente dark, limite superfícies muito escuras a cerca de 30–40% da página e combine com seções claras/off-white, cards claros e áreas de respiro.
+- Em marcas preto+dourado, prefira contraste editorial: hero/header escuros, conteúdo principal claro, dourado como acento, e não fundo preto contínuo em todas as seções.
+- Antes de finalizar, verifique se a página tem variedade tonal suficiente para que seções diferentes sejam visualmente distinguíveis.
 - Use CSS custom properties para cores, raios, spacing e tipografia.
 - Se não houver imagens confiáveis, produza composição premium com SVG inline, shapes e textura CSS em vez de URLs inventadas.
 
