@@ -74,6 +74,8 @@ export default function StudioClient({
   const [savingCode, setSavingCode] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
+  const [healthScore, setHealthScore] = useState<number | null>(null)
+  const [checkingHealth, setCheckingHealth] = useState(false)
   const feedRef = useRef<HTMLDivElement>(null)
 
   const status = useMemo(() => {
@@ -263,6 +265,33 @@ export default function StudioClient({
     const url = URL.createObjectURL(blob)
     window.open(url, '_blank', 'noopener,noreferrer')
     window.setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
+  async function checkHealth() {
+    if (checkingHealth) return
+    setCheckingHealth(true)
+    try {
+      const response = await fetch('/api/projects/' + projectId + '/health', { cache: 'no-store' })
+      const data = await response.json()
+      if (!response.ok || !data?.ok) {
+        setResult({ ok: false, error: data?.error ?? 'Não foi possível analisar o projeto.' })
+        return
+      }
+
+      setHealthScore(Number(data.quality?.score ?? 0))
+      setResult({
+        ok: true,
+        summary: 'QA do projeto: ' + Number(data.quality?.score ?? 0) + '/100. ' +
+          ((data.quality?.issues ?? []).slice(0, 3).join(' · ') || 'Nenhum problema importante encontrado.'),
+        qualityScore: Number(data.quality?.score ?? 0),
+        qualityIssues: data.quality?.issues ?? [],
+      })
+      setPanel('chat')
+    } catch (error) {
+      setResult({ ok: false, error: error instanceof Error ? error.message : 'Falha no QA.' })
+    } finally {
+      setCheckingHealth(false)
+    }
   }
 
   async function publishProject() {
@@ -465,6 +494,9 @@ export default function StudioClient({
             <button className={device === 'tablet' ? 'topIcon active' : 'topIcon'} onClick={() => setDevice('tablet')} title="Tablet">▯</button>
             <button className={device === 'mobile' ? 'topIcon active' : 'topIcon'} onClick={() => setDevice('mobile')} title="Mobile">▯</button>
             <button className="topIcon" onClick={() => setRefreshKey((v) => v + 1)} title="Atualizar">↻</button>
+            <button className="topIcon qaButton" onClick={checkHealth} disabled={checkingHealth} title="QA do projeto">
+              {checkingHealth ? '…' : healthScore !== null ? 'QA ' + healthScore : 'QA'}
+            </button>
             <button className="pageSelectBtn" type="button">Página inicial <span>⌄</span></button>
           </div>
 
