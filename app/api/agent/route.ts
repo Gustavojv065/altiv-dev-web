@@ -5,6 +5,8 @@ import { classifyTask, PIPELINE } from '@/lib/agent/pipeline'
 import { analyzeHtmlQuality } from '@/lib/agent/quality'
 import { buildSkillInstructions, selectAltivSkills } from '@/lib/agent/skills'
 import { createClient } from '@/lib/supabase/server'
+import { providerRoutesFor } from '@/lib/ai/provider-catalog'
+import { callWithFallback } from '@/lib/ai/direct-provider'
 
 export const maxDuration = 300
 
@@ -359,9 +361,49 @@ async function generateWebsite(
   prompt: string,
   currentHtml: string | null | undefined,
   spec: SiteSpec,
-  memoryText: string
+  memoryText: string,
+  task: ReturnType<typeof classifyTask>
 ) {
   const errors: string[] = []
+
+  const routes = providerRoutesFor(task, true)
+  if (routes.length) {
+    try {
+      const result = await callWithFallback(
+        routes,
+        [
+          { role: 'system', content: designSystemPrompt(spec, memoryText, currentHtml) },
+          { role: 'user', content: prompt },
+        ],
+        { timeoutMs: 120000, maxTokens: 10000, temperature: 0.45 }
+      )
+
+      let html = stripCodeFences(result.text)
+      const doctypeIndex = html.toLowerCase().indexOf('<!doctype html>')
+      const htmlIndex = html.toLowerCase().indexOf('<html')
+      const startIndex = doctypeIndex >= 0 ? doctypeIndex : htmlIndex
+      if (startIndex > 0) html = html.slice(startIndex)
+
+      if (html.toLowerCase().includes('<html') && html.length >= 500) {
+        if (!html.toLowerCase().includes('</body>')) html += '\n</body>'
+        if (!html.toLowerCase().includes('</html>')) html += '\n</html>'
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+        return {
+          model: result.route.model,
+          provider: result.route.provider,
+          output: {
+            title: titleMatch?.[1]?.trim() || spec.brand || 'Projeto ALTIV',
+            summary: 'Site atualizado por ' + result.route.provider + ' / ' + result.route.model + ' com roteamento automático de Skills.',
+            html,
+          },
+        }
+      }
+
+      errors.push(result.route.provider + ' retornou HTML insuficiente.')
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error))
+    }
+  }
 
   if (process.env.NVIDIA_API_KEY) {
     const directModels = [
@@ -576,7 +618,7 @@ export async function POST(req: NextRequest) {
     await markStep('plan', 'completed')
     await markStep('generate', 'running')
 
-    const generated = await generateWebsite(enrichedPrompt, currentFile?.content, spec, memoryText)
+    const generated = await generateWebsite(enrichedPrompt, currentFile?.content, spec, memoryText, task)
 
     await markStep('generate', 'completed')
     await markStep('validate', 'running')
