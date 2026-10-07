@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser, isSuperAdmin } from '@/lib/saas/access'
 import { SAAS_PLANS } from '@/lib/saas/plans'
 
 async function safeCount(table:string) {
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     const { count } = await supabase.from(table).select('*', { count:'exact', head:true })
     return count ?? 0
   } catch {
@@ -32,6 +32,7 @@ export default async function AdminPage() {
         <div className="projectsBrand"><span>A</span><div><strong>ALTIV ADMIN</strong><small>SaaS Control Center</small></div></div>
         <nav className="adminNav">
           <a className="active">Visão geral</a>
+          <a href="/admin/clients">Clientes</a>
           <a href="/workspace">Workspace</a>
           <a href="/integrations">Integrações</a>
         </nav>
