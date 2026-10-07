@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { logout } from '@/app/login/actions'
 import { createProject } from './actions'
+import { getAccountPlan } from '@/lib/saas/account'
 
 export default async function WorkspacePage() {
   const supabase = await createClient()
@@ -9,6 +10,8 @@ export default async function WorkspacePage() {
   if (error || !data?.claims) redirect('/login')
 
   const userId = String(data.claims.sub)
+  const email = typeof data.claims.email === 'string' ? data.claims.email : ''
+  const accountContext = await getAccountPlan(userId)
 
   const [{ data: profile }, { data: projects }] = await Promise.all([
     supabase.from('profiles').select('display_name,avatar_url').eq('id', userId).maybeSingle(),
@@ -37,7 +40,7 @@ export default async function WorkspacePage() {
           <div>
             <span className="eyebrow">WORKSPACE</span>
             <h1>Olá, {profile?.display_name || 'criador'}.</h1>
-            <p>Crie, edite e acompanhe seus projetos em um só lugar.</p>
+            <p>Crie, edite e acompanhe seus projetos em um só lugar.</p><small className="workspacePlan">Plano {accountContext.plan.label} · {projects?.length ?? 0}/{accountContext.plan.projects} projetos</small>
           </div>
           <form action={createProject}><button className="createProjectBtn">＋ Novo projeto</button></form>
         </header>
