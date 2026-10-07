@@ -78,6 +78,8 @@ export async function getAccountPlan(ownerId:string) {
     .limit(1)
     .maybeSingle()
 
+  if (account.status === 'suspended') throw new Error('Esta conta está suspensa. Entre em contato com o suporte.')
+  if (account.status === 'canceled') throw new Error('Esta conta foi cancelada.')
   const code = (subscription?.plan_code || 'free') as PlanCode
   return { account, subscription, plan:SAAS_PLANS[code] || SAAS_PLANS.free }
 }
