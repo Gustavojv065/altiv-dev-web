@@ -5,36 +5,62 @@ import { planFileTargets, type ProjectFileInfo } from '@/lib/agent/file-intellig
 import { selectAltivSkills, buildSkillInstructions } from '@/lib/agent/skills'
 import { renderStaticSite } from '@/lib/project/render'
 
-const allowedPaths = new Set(['index.html', 'styles.css', 'script.js'])
+type EditablePath = 'index.html' | 'styles.css' | 'script.js'
+type EditFile = { path: EditablePath; content: string }
+type EditResult = { summary: string; files: EditFile[] }
 
-function extractJson(text: string) {
+function parseEditResult(text: string, targets: EditablePath[]): EditResult {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
   const start = cleaned.indexOf('{')
   const end = cleaned.lastIndexOf('}')
   if (start < 0 || end < start) throw new Error('Resposta JSON inválida.')
-  return JSON.parse(cleaned.slice(start, end + 1))
+
+  const raw: unknown = JSON.parse(cleaned.slice(start, end + 1))
+  if (!raw || typeof raw !== 'object') throw new Error('Resposta inválida.')
+  const object = raw as Record<string, unknown>
+  const summary = typeof object.summary === 'string' ? object.summary : 'Edição concluída.'
+  const rawFiles = Array.isArray(object.files) ? object.files : []
+
+  const files: EditFile[] = []
+  for (const item of rawFiles) {
+    if (!item || typeof item !== 'object') continue
+    const file = item as Record<string, unknown>
+    const path = file.path
+    const fileContent = file.content
+    if (
+      (path === 'index.html' || path === 'styles.css' || path === 'script.js') &&
+      targets.includes(path) &&
+      typeof fileContent === 'string'
+    ) {
+      files.push({ path, content: fileContent })
+    }
+  }
+
+  if (!files.length) throw new Error('A IA não retornou arquivos válidos.')
+  return { summary, files: files.slice(0, 3) }
 }
 
-async function callModel(prompt: string) {
-  const key = process.env.NVIDIA_API_KEY
-  if (!key) throw new Error('NVIDIA_API_KEY não configurada.')
+async function runNvidia(prompt: string, targets: EditablePath[]) {
+  const apiKey = process.env.NVIDIA_API_KEY
+  if (!apiKey) throw new Error('NVIDIA_API_KEY não configurada.')
 
   const models = [
-    { id: 'nvidia/nemotron-3-super-120b-a12b', timeout: 140000 },
-    { id: 'nvidia/nemotron-3.5-lightning-30b-a3b', timeout: 65000 },
+    { id: 'nvidia/nemotron-3-super-120b-a12b', timeoutMs: 140000 },
+    { id: 'nvidia/nemotron-3.5-lightning-30b-a3b', timeoutMs: 65000 },
   ]
   const errors: string[] = []
 
   for (const model of models) {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), model.timeout)
+    const timer = setTimeout(() => controller.abort(), model.timeoutMs)
+
     try {
       const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
         method: 'POST',
         signal: controller.signal,
         headers: {
           'content-type': 'application/json',
-          authorization: 'Bearer ' + key,
+          authorization: 'Bearer ' + apiKey,
         },
         body: JSON.stringify({
           model: model.id,
@@ -46,11 +72,12 @@ async function callModel(prompt: string) {
           chat_template_kwargs: { enable_thinking: false, force_nonempty_content: true },
         }),
       })
-      if (!response.ok) throw new Error('HTTP ' + response.status)
-      const data = await response.json()
-      const text = String(data?.choices?.[0]?.message?.content ?? '')
-      const parsed = extractJson(text)
-      return { model: model.id, parsed }
+
+      if (!response.ok) throw new Error('NVIDIA HTTP ' + response.status)
+      const payload: unknown = await response.json()
+      const data = payload as { choices?: Array<{ message?: { content?: string } }> }
+      const text = data.choices?.[0]?.message?.content ?? ''
+      return { model: model.id, result: parseEditResult(text, targets) }
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error))
     } finally {
@@ -58,7 +85,7 @@ async function callModel(prompt: string) {
     }
   }
 
-  throw new Error('Nenhum modelo concluiu a edição: ' + errors.join(' | '))
+  throw new Error('Falha na edição: ' + errors.join(' | '))
 }
 
 export async function POST(
@@ -72,146 +99,143 @@ export async function POST(
 
   const supabase = await createClient()
   const { data: auth } = await supabase.auth.getClaims()
-  const ownerId = auth?.claims?.sub
-  if (!ownerId) return NextResponse.json({ ok: false, error: 'Não autenticado.' }, { status: 401 })
+  if (!auth?.claims?.sub) {
+    return NextResponse.json({ ok: false, error: 'Não autenticado.' }, { status: 401 })
+  }
+  const ownerId = String(auth.claims.sub)
 
-  const [{ data: project }, { data: files }, { data: specRow }, { data: memories }] = await Promise.all([
-    supabase.from('projects').select('id,name').eq('id', id).eq('owner_id', ownerId).maybeSingle(),
-    supabase.from('project_files').select('path,content,revision,language')
-      .eq('project_id', id).eq('owner_id', ownerId).order('path'),
-    supabase.from('project_specs').select('spec').eq('project_id', id).eq('owner_id', ownerId).maybeSingle(),
-    supabase.from('project_memories').select('kind,content,importance')
-      .eq('project_id', id).eq('owner_id', ownerId).order('importance', { ascending: false }).limit(6),
-  ])
-
+  const { data: project } = await supabase.from('projects')
+    .select('id').eq('id', id).eq('owner_id', ownerId).maybeSingle()
   if (!project) return NextResponse.json({ ok: false, error: 'Projeto não encontrado.' }, { status: 404 })
 
-  const projectFiles = (files ?? []) as ProjectFileInfo[]
-  const plan = planFileTargets(userPrompt, projectFiles)
-  if (plan.mode !== 'targeted') {
+  const { data: fileRows, error: filesError } = await supabase.from('project_files')
+    .select('path,content,revision,language').eq('project_id', id).eq('owner_id', ownerId).order('path')
+  if (filesError) return NextResponse.json({ ok: false, error: filesError.message }, { status: 500 })
+
+  const files: ProjectFileInfo[] = (fileRows ?? []).map((file) => ({
+    path: String(file.path),
+    content: String(file.content ?? ''),
+    revision: Number(file.revision ?? 0),
+    language: String(file.language ?? 'text'),
+  }))
+
+  const plan = planFileTargets(userPrompt, files)
+  if (plan.mode === 'full') {
     return NextResponse.json({ ok: false, fallback: true, plan }, { status: 409 })
   }
 
+  const targets = plan.targets
   const { data: lockToken } = await supabase.rpc('acquire_project_agent_lock', {
-    p_project_id: id, p_owner_id: ownerId, p_ttl_seconds: 300,
+    p_project_id: id,
+    p_owner_id: ownerId,
+    p_ttl_seconds: 300,
   })
   if (!lockToken) {
     return NextResponse.json({ ok: false, error: 'Já existe uma edição ativa neste projeto.' }, { status: 409 })
   }
 
   try {
-    const targetContext = projectFiles
-      .filter((file) => plan.targets.includes(file.path as 'index.html' | 'styles.css' | 'script.js'))
+    const context = files
+      .filter((file) => targets.includes(file.path as EditablePath))
       .map((file) => 'ARQUIVO ' + file.path + '\n' + file.content.slice(0, 50000))
       .join('\n\n')
 
-    const memory = (memories ?? []).map((item) => '[' + item.kind + '] ' + item.content).join('\n')
-    const skillText = buildSkillInstructions(userPrompt)
-    const prompt = `Você é o editor cirúrgico do ALTIV DEV.
-Edite apenas os arquivos autorizados abaixo e preserve tudo que não fizer parte do pedido.
+    const skills = buildSkillInstructions(userPrompt)
+    const aiPrompt = `Você é o editor cirúrgico do ALTIV DEV.
 
-ARQUIVOS AUTORIZADOS: ${plan.targets.join(', ')}
-MOTIVO DO PLANO: ${plan.reason}
-
-Retorne SOMENTE JSON válido:
-{"summary":"resumo curto","files":[{"path":"styles.css","content":"conteúdo completo atualizado"}]}
+Edite somente: ${targets.join(', ')}.
+Retorne somente JSON válido no formato:
+{"summary":"resumo","files":[{"path":"styles.css","content":"arquivo completo"}]}
 
 Regras:
-- Cada content deve ser o arquivo completo atualizado, nunca um patch parcial.
-- Não retorne arquivos fora da lista autorizada.
-- Não invente telefone, endereço, avaliações, clientes ou depoimentos.
-- Preserve marca, conteúdo e funcionalidades não relacionadas.
+- Preserve tudo fora do pedido.
+- Retorne o conteúdo COMPLETO de cada arquivo alterado.
+- Não invente dados comerciais.
 - Mantenha responsividade, acessibilidade e SEO.
-- JavaScript deve funcionar dentro de um iframe sandbox.
-- Não use eval ou document.write.
-- Se um arquivo autorizado não precisa mudar, não o retorne.
+- JavaScript deve funcionar em iframe sandbox.
+- Não use eval nem document.write.
 
 SKILLS:
-${skillText || 'Edição segura'}
-
-SITE SPEC:
-${JSON.stringify(specRow?.spec ?? {})}
-
-MEMÓRIA:
-${memory || 'Sem memória adicional.'}
+${skills || 'Edição segura'}
 
 PEDIDO:
 ${userPrompt}
 
 ARQUIVOS:
-${targetContext}`
+${context}`
 
-    const generated = await callModel(prompt)
-    const rawFiles = Array.isArray(generated.parsed?.files) ? generated.parsed.files : []
-    const edits = rawFiles
-      .filter((file: any) => allowedPaths.has(file?.path) && plan.targets.includes(file.path) && typeof file?.content === 'string')
-      .slice(0, 3)
-
-    if (!edits.length) throw new Error('A IA não retornou uma edição válida.')
-
+    const generated = await runNvidia(aiPrompt, targets)
     const now = new Date().toISOString()
-    const currentMap = new Map(projectFiles.map((file) => [file.path, file]))
-    const rows = edits.map((edit: { path: string; content: string }) => ({
+    const currentByPath = new Map(files.map((file) => [file.path, file]))
+
+    const rows = generated.result.files.map((file) => ({
       owner_id: ownerId,
       project_id: id,
-      path: edit.path,
-      content: edit.content,
-      language: edit.path.endsWith('.css') ? 'css' : edit.path.endsWith('.js') ? 'javascript' : 'html',
-      revision: (currentMap.get(edit.path)?.revision ?? 0) + 1,
+      path: file.path,
+      content: file.content,
+      language: file.path.endsWith('.css') ? 'css' : file.path.endsWith('.js') ? 'javascript' : 'html',
+      revision: (currentByPath.get(file.path)?.revision ?? 0) + 1,
       updated_at: now,
     }))
 
-    const { error: saveError } = await supabase.from('project_files').upsert(rows, { onConflict: 'project_id,path' })
+    const { error: saveError } = await supabase.from('project_files')
+      .upsert(rows, { onConflict: 'project_id,path' })
     if (saveError) throw saveError
 
-    const { data: savedFiles, error: readError } = await supabase.from('project_files')
+    const { data: savedRows, error: savedError } = await supabase.from('project_files')
       .select('path,content,revision,language').eq('project_id', id).eq('owner_id', ownerId).order('path')
-    if (readError) throw readError
+    if (savedError) throw savedError
 
-    const rendered = renderStaticSite((savedFiles ?? []).map((file) => ({ path: file.path, content: file.content })))
+    const savedFiles: ProjectFileInfo[] = (savedRows ?? []).map((file) => ({
+      path: String(file.path),
+      content: String(file.content ?? ''),
+      revision: Number(file.revision ?? 0),
+      language: String(file.language ?? 'text'),
+    }))
+
+    const rendered = renderStaticSite(savedFiles)
     const quality = analyzeHtmlQuality(rendered)
 
-    const { data: last } = await supabase.from('project_versions').select('version_number')
-      .eq('project_id', id).eq('owner_id', ownerId).order('version_number', { ascending: false }).limit(1).maybeSingle()
-    const versionNumber = (last?.version_number ?? 0) + 1
+    const { data: lastVersion } = await supabase.from('project_versions')
+      .select('version_number').eq('project_id', id).eq('owner_id', ownerId)
+      .order('version_number', { ascending: false }).limit(1).maybeSingle()
+
+    const versionNumber = Number(lastVersion?.version_number ?? 0) + 1
     const changedFiles = rows.map((row) => row.path)
-    const summary = String(generated.parsed?.summary ?? 'Edição cirúrgica concluída.') +
-      ' Arquivos: ' + changedFiles.join(', ') + '. Qualidade ALTIV: ' + quality.score + '/100.'
+    const summary = generated.result.summary + ' Arquivos: ' + changedFiles.join(', ') +
+      '. Qualidade ALTIV: ' + quality.score + '/100.'
 
     const { error: versionError } = await supabase.from('project_versions').insert({
-      owner_id: ownerId, project_id: id, version_number: versionNumber,
-      source_type: 'snapshot', summary,
-      metadata: { source: 'surgical-agent', model: generated.model, files: changedFiles, file_plan: plan, quality_score: quality.score },
+      owner_id: ownerId,
+      project_id: id,
+      version_number: versionNumber,
+      source_type: 'snapshot',
+      summary,
+      metadata: {
+        source: 'surgical-agent',
+        model: generated.model,
+        files: changedFiles,
+        file_plan: plan,
+        quality_score: quality.score,
+      },
     })
     if (versionError) throw versionError
 
     const { error: snapshotError } = await supabase.from('project_version_files').insert(
-      (savedFiles ?? []).map((file) => ({
-        owner_id: ownerId, project_id: id, version_number: versionNumber,
-        path: file.path, content: file.content,
+      savedFiles.map((file) => ({
+        owner_id: ownerId,
+        project_id: id,
+        version_number: versionNumber,
+        path: file.path,
+        content: file.content,
       }))
     )
     if (snapshotError) throw snapshotError
 
-    let { data: conversation } = await supabase.from('conversations').select('id')
-      .eq('owner_id', ownerId).eq('project_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    await supabase.from('projects').update({ status: 'ready', updated_at: now })
+      .eq('id', id).eq('owner_id', ownerId)
 
-    if (!conversation) {
-      const created = await supabase.from('conversations')
-        .insert({ owner_id: ownerId, project_id: id, title: userPrompt.slice(0, 80) }).select('id').single()
-      conversation = created.data
-    }
-
-    if (conversation?.id) {
-      await supabase.from('messages').insert([
-        { owner_id: ownerId, conversation_id: conversation.id, role: 'user', content: userPrompt },
-        { owner_id: ownerId, conversation_id: conversation.id, role: 'assistant', content: summary, model: generated.model },
-      ])
-    }
-
-    await supabase.from('projects').update({ status: 'ready', updated_at: now }).eq('id', id).eq('owner_id', ownerId)
-
-    const htmlFile = (savedFiles ?? []).find((file) => file.path === 'index.html')
+    const htmlFile = savedFiles.find((file) => file.path === 'index.html')
     return NextResponse.json({
       ok: true,
       model: generated.model,
@@ -224,7 +248,7 @@ ${targetContext}`
       activeSkills: selectAltivSkills(userPrompt).map((skill) => ({ id: skill.id, label: skill.label })),
       changedFiles,
       filePlan: plan,
-      files: savedFiles ?? [],
+      files: savedFiles,
     })
   } catch (error) {
     return NextResponse.json({
@@ -233,7 +257,9 @@ ${targetContext}`
     }, { status: 500 })
   } finally {
     await supabase.rpc('release_project_agent_lock', {
-      p_project_id: id, p_owner_id: ownerId, p_token: lockToken,
+      p_project_id: id,
+      p_owner_id: ownerId,
+      p_token: lockToken,
     })
   }
 }
