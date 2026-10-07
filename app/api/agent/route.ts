@@ -7,6 +7,8 @@ import { buildSkillInstructions, selectAltivSkills } from '@/lib/agent/skills'
 import { createClient } from '@/lib/supabase/server'
 import { providerRoutesFor } from '@/lib/ai/provider-catalog'
 import { callWithFallback } from '@/lib/ai/direct-provider'
+import { callUserFallback, type UserProviderKeys } from '@/lib/ai/byok-provider'
+import { getCredential } from '@/lib/integrations/user-credentials'
 
 export const maxDuration = 300
 
@@ -362,9 +364,51 @@ async function generateWebsite(
   currentHtml: string | null | undefined,
   spec: SiteSpec,
   memoryText: string,
-  task: ReturnType<typeof classifyTask>
+  task: ReturnType<typeof classifyTask>,
+  userKeys?: UserProviderKeys
 ) {
   const errors: string[] = []
+
+  if (userKeys && Object.keys(userKeys).length) {
+    const available = new Set(Object.keys(userKeys) as Array<keyof UserProviderKeys>)
+    const userRoutes = providerRoutesFor(task, true, available as Set<any>)
+    if (userRoutes.length) {
+      try {
+        const result = await callUserFallback(
+          userRoutes,
+          userKeys,
+          [
+            { role: 'system', content: designSystemPrompt(spec, memoryText, currentHtml) },
+            { role: 'user', content: prompt },
+          ],
+          { timeoutMs: 120000, maxTokens: 10000, temperature: 0.45 }
+        )
+
+        let html = stripCodeFences(result.text)
+        const doctypeIndex = html.toLowerCase().indexOf('<!doctype html>')
+        const htmlIndex = html.toLowerCase().indexOf('<html')
+        const startIndex = doctypeIndex >= 0 ? doctypeIndex : htmlIndex
+        if (startIndex > 0) html = html.slice(startIndex)
+
+        if (html.toLowerCase().includes('<html') && html.length >= 500) {
+          if (!html.toLowerCase().includes('</body>')) html += '\n</body>'
+          if (!html.toLowerCase().includes('</html>')) html += '\n</html>'
+          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+          return {
+            model: result.route.model,
+            provider: 'user-' + result.route.provider,
+            output: {
+              title: titleMatch?.[1]?.trim() || spec.brand || 'Projeto ALTIV',
+              summary: 'Site atualizado com a chave do usuário em ' + result.route.provider + ' / ' + result.route.model + '.',
+              html,
+            },
+          }
+        }
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error))
+      }
+    }
+  }
 
   const routes = providerRoutesFor(task, true)
   if (routes.length) {
@@ -618,7 +662,18 @@ export async function POST(req: NextRequest) {
     await markStep('plan', 'completed')
     await markStep('generate', 'running')
 
-    const generated = await generateWebsite(enrichedPrompt, currentFile?.content, spec, memoryText, task)
+    const providerIds = ['openrouter','opencode-zen','openai','gemini','nvidia'] as const
+    const pairs = await Promise.all(providerIds.map(async (provider) => {
+      try {
+        const credential = await getCredential(ownerId, provider)
+        return credential?.secret ? [provider, credential.secret] as const : null
+      } catch {
+        return null
+      }
+    }))
+    const userKeys = Object.fromEntries(pairs.filter(Boolean) as Array<readonly [string,string]>) as UserProviderKeys
+
+    const generated = await generateWebsite(enrichedPrompt, currentFile?.content, spec, memoryText, task, userKeys)
 
     await markStep('generate', 'completed')
     await markStep('validate', 'running')

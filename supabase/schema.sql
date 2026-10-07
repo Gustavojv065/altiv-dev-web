@@ -36,3 +36,26 @@ create policy "memories_select_own" on public.agent_memories for select to authe
 create policy "memories_insert_own" on public.agent_memories for insert to authenticated with check ((select auth.uid()) = owner_id);
 create policy "memories_update_own" on public.agent_memories for update to authenticated using ((select auth.uid()) = owner_id) with check ((select auth.uid()) = owner_id);
 create policy "memories_delete_own" on public.agent_memories for delete to authenticated using ((select auth.uid()) = owner_id);
+
+
+-- Encrypted BYOK credentials. Ciphertext is encrypted by the server before storage.
+create table if not exists public.user_credentials (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in ('openrouter','opencode-zen','openai','gemini','nvidia','github')),
+  label text not null,
+  encrypted_secret text not null,
+  secret_iv text not null,
+  secret_tag text not null,
+  enabled boolean not null default true,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(owner_id, kind)
+);
+
+alter table public.user_credentials enable row level security;
+create policy "credentials_select_own" on public.user_credentials for select to authenticated using ((select auth.uid()) = owner_id);
+create policy "credentials_insert_own" on public.user_credentials for insert to authenticated with check ((select auth.uid()) = owner_id);
+create policy "credentials_update_own" on public.user_credentials for update to authenticated using ((select auth.uid()) = owner_id) with check ((select auth.uid()) = owner_id);
+create policy "credentials_delete_own" on public.user_credentials for delete to authenticated using ((select auth.uid()) = owner_id);

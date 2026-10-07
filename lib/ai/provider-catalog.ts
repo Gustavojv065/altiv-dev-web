@@ -45,7 +45,8 @@ const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
   ],
 }
 
-function hasProviderKey(provider: ProviderId) {
+function hasProviderKey(provider: ProviderId, available?: Set<ProviderId>) {
+  if (available?.has(provider)) return true
   switch (provider) {
     case 'openrouter': return Boolean(process.env.OPENROUTER_API_KEY)
     case 'opencode-zen': return Boolean(process.env.OPENCODE_ZEN_API_KEY)
@@ -55,12 +56,12 @@ function hasProviderKey(provider: ProviderId) {
   }
 }
 
-export function providerRoutesFor(task: AgentTask, preferFree = true) {
-  const routes = FREE_FIRST[task].filter((route) => hasProviderKey(route.provider))
+export function providerRoutesFor(task: AgentTask, preferFree = true, available?: Set<ProviderId>) {
+  const routes = FREE_FIRST[task].filter((route) => hasProviderKey(route.provider, available))
   return preferFree ? routes.sort((a, b) => Number(Boolean(b.free)) - Number(Boolean(a.free))) : routes
 }
 
 export function configuredProviders(): ProviderId[] {
   return (['openrouter', 'opencode-zen', 'openai', 'gemini', 'nvidia'] as ProviderId[])
-    .filter(hasProviderKey)
+    .filter((provider) => hasProviderKey(provider))
 }
