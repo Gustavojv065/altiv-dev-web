@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { recordUsage } from '@/lib/saas/usage'
 
 export async function createProject() {
   const supabase = await createClient()
@@ -16,5 +17,6 @@ export async function createProject() {
     .single()
 
   if (error || !project) redirect('/workspace?error=' + encodeURIComponent(error?.message ?? 'Não foi possível criar o projeto.'))
+  await recordUsage({ ownerId, type:'project_create', metadata:{ projectId:project.id } })
   redirect('/studio/' + project.id)
 }
