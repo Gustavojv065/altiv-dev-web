@@ -35,7 +35,14 @@ export async function POST(req:NextRequest) {
     const token = credential?.secret || process.env.GITHUB_TOKEN
     if (!token) return NextResponse.json({ ok:false, error:'GitHub não conectado.' }, { status:400 })
 
-    const repo = await githubRequest<{name:string;full_name:string;default_branch:string}>('/repos/' + fullName, { token })
+    const repo = await githubRequest<{name:string;full_name:string;default_branch:string;private:boolean}>('/repos/' + fullName, { token })
+    if (repo.private && !accountContext.plan.privateRepositories) {
+      return NextResponse.json({
+        ok:false,
+        error:'Repositórios privados não estão incluídos no plano ' + accountContext.plan.label + '.',
+      }, { status:403 })
+    }
+
     const ref = branch || repo.default_branch
     const tree = await githubRequest<{tree:Array<{path:string;type:string;size?:number;sha:string}>;truncated:boolean}>(
       '/repos/' + fullName + '/git/trees/' + encodeURIComponent(ref) + '?recursive=1',
