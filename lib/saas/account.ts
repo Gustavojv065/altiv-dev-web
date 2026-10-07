@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { SAAS_PLANS, type PlanCode } from '@/lib/saas/plans'
+import { activeTrialPlan, normalizeExpiredTrial } from '@/lib/saas/trials'
 
 function slugify(value:string) {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,42) || 'workspace'
@@ -9,7 +10,7 @@ export async function ensureSaasAccount(user:{id:string;email?:string}) {
   const supabase = await createClient()
   const { data: existing } = await supabase
     .from('saas_accounts')
-    .select('id,name,slug,status')
+    .select('id,name,slug,status,trial_plan_code,trial_ends_at')
     .eq('owner_id', user.id)
     .order('created_at',{ascending:true})
     .limit(1)
@@ -17,7 +18,7 @@ export async function ensureSaasAccount(user:{id:string;email?:string}) {
 
   if (existing) {
     await ensureFreeSubscription(existing.id)
-    return existing
+    return normalizeExpiredTrial(existing)
   }
 
   const base = slugify((user.email || 'workspace').split('@')[0])
@@ -68,7 +69,7 @@ async function ensureFreeSubscription(accountId:string) {
 
 export async function getAccountPlan(ownerId:string) {
   const supabase = await createClient()
-  const account = await ensureSaasAccount({id:ownerId})
+  let account = await ensureSaasAccount({id:ownerId})
   const { data:subscription } = await supabase
     .from('saas_subscriptions')
     .select('plan_code,status,current_period_start,current_period_end')
@@ -78,10 +79,13 @@ export async function getAccountPlan(ownerId:string) {
     .limit(1)
     .maybeSingle()
 
+  account = await normalizeExpiredTrial(account)
   if (account.status === 'suspended') throw new Error('Esta conta está suspensa. Entre em contato com o suporte.')
   if (account.status === 'canceled') throw new Error('Esta conta foi cancelada.')
+  const trialPlan = activeTrialPlan(account)
+  if (trialPlan) return { account, subscription, plan:trialPlan, trial:true }
   const code = (subscription?.plan_code || 'free') as PlanCode
-  return { account, subscription, plan:SAAS_PLANS[code] || SAAS_PLANS.free }
+  return { account, subscription, plan:SAAS_PLANS[code] || SAAS_PLANS.free, trial:false }
 }
 
 export async function assertProjectLimit(ownerId:string) {
