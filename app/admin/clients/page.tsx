@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getCurrentUser, isSuperAdmin } from '@/lib/saas/access'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { setAccountPlan, setAccountStatus } from './actions'
+import { startTrial, endTrial } from './trial-actions'
 
 export default async function AdminClientsPage({ searchParams }: { searchParams: Promise<{message?:string;error?:string}> }) {
   const params = await searchParams
@@ -12,7 +13,7 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
   const supabase = createAdminClient()
   const { data:accounts } = await supabase
     .from('saas_accounts')
-    .select('id,name,slug,status,owner_id,created_at')
+    .select('id,name,slug,status,owner_id,created_at,trial_plan_code,trial_ends_at')
     .order('created_at',{ascending:false})
     .limit(100)
 
@@ -77,6 +78,27 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
                             </select>
                             <button>Atualizar</button>
                           </form>
+                          <form action={startTrial}>
+                            <input type="hidden" name="account_id" value={account.id} />
+                            <select name="trial_plan_code" defaultValue={account.trial_plan_code || 'pro'}>
+                              <option value="starter">Teste Starter</option>
+                              <option value="pro">Teste Pro</option>
+                              <option value="business">Teste Business</option>
+                            </select>
+                            <select name="trial_days" defaultValue="14">
+                              <option value="7">7 dias</option>
+                              <option value="14">14 dias</option>
+                              <option value="30">30 dias</option>
+                            </select>
+                            <button>Iniciar teste</button>
+                          </form>
+                          {account.status === 'trial' && (
+                            <form action={endTrial}>
+                              <input type="hidden" name="account_id" value={account.id} />
+                              <button>Encerrar teste</button>
+                            </form>
+                          )}
+                          {account.trial_ends_at && <small>Teste até {new Date(account.trial_ends_at).toLocaleDateString('pt-BR')}</small>}
                         </div>
                       </td>
                     </tr>
