@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCredential } from '@/lib/integrations/user-credentials'
 import { githubRequest } from '@/lib/github/client'
+import { recordUsage } from '@/lib/saas/usage'
 
 export const maxDuration = 300
 
@@ -84,6 +85,8 @@ export async function POST(req:NextRequest) {
       const write = await supabase.from('project_files').upsert(rows, { onConflict:'project_id,path' })
       if (write.error) throw write.error
     }
+
+    await recordUsage({ ownerId, type:'github_import', metadata:{ projectId, repository:repo.full_name, importedFiles:rows.length } })
 
     return NextResponse.json({
       ok:true,
