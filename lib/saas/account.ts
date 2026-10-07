@@ -69,7 +69,7 @@ async function ensureFreeSubscription(accountId:string) {
 
 export async function getAccountPlan(ownerId:string) {
   const supabase = await createClient()
-  const account = await ensureSaasAccount({id:ownerId})
+  let account = await ensureSaasAccount({id:ownerId})
   const { data:subscription } = await supabase
     .from('saas_subscriptions')
     .select('plan_code,status,current_period_start,current_period_end')
