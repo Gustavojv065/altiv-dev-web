@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { renderStaticSite } from '@/lib/project/render'
 
 type AgentResponse = {
   ok: boolean
@@ -80,6 +81,7 @@ export default function StudioClient({
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
   const [healthScore, setHealthScore] = useState<number | null>(null)
   const [checkingHealth, setCheckingHealth] = useState(false)
+  const renderedHtml = useMemo(() => renderStaticSite(files), [files])
   const feedRef = useRef<HTMLDivElement>(null)
 
   const status = useMemo(() => {
@@ -286,7 +288,7 @@ export default function StudioClient({
 
   function openPreview() {
     if (!previewHtml) return
-    const blob = new Blob([previewHtml], { type: 'text/html' })
+    const blob = new Blob([renderedHtml], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     window.open(url, '_blank', 'noopener,noreferrer')
     window.setTimeout(() => URL.revokeObjectURL(url), 60000)
@@ -543,7 +545,7 @@ export default function StudioClient({
                 key={refreshKey}
                 title="ALTIV Preview"
                 sandbox="allow-scripts allow-forms allow-modals allow-popups"
-                srcDoc={previewHtml}
+                srcDoc={renderedHtml || previewHtml}
               />
             ) : (
               <div className="previewEmpty">
