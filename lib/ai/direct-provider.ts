@@ -22,7 +22,7 @@ function providerConfig(route: ProviderRoute) {
     case 'openai':
       return {
         key: process.env.OPENAI_API_KEY,
-        url: 'https://api.openai.com/v1/chat/completions',
+        url: 'https://api.openai.com/v1/responses',
         headers: {},
       }
     case 'nvidia':
@@ -70,6 +70,40 @@ export async function callProvider(
   const timeoutMs = options.timeoutMs ?? 90000
   const maxTokens = options.maxTokens ?? 9000
   if (route.provider === 'gemini') return callGemini(route, messages, timeoutMs, maxTokens)
+
+  if (route.provider === 'openai') {
+    const key = process.env.OPENAI_API_KEY
+    if (!key) throw new Error('OpenAI não configurada.')
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer ' + key,
+      },
+      body: JSON.stringify({
+        model: route.model,
+        input: messages.map((message) => ({
+          role: message.role,
+          content: [{ type: 'input_text', text: message.content }],
+        })),
+        max_output_tokens: maxTokens,
+      }),
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error('openai / ' + route.model + ' falhou: ' + response.status + ' ' + detail.slice(0, 350))
+    }
+    const data = await response.json()
+    const text = String(
+      data?.output_text ??
+      data?.output?.flatMap((item: { content?: Array<{ text?: string }> }) => item.content ?? [])
+        ?.map((part: { text?: string }) => part.text || '').join('') ??
+      ''
+    ).trim()
+    if (!text) throw new Error('openai / ' + route.model + ' não retornou conteúdo.')
+    return text
+  }
 
   const config = providerConfig(route)
   if (!config?.key) throw new Error(route.provider + ' não configurado.')
