@@ -539,3 +539,30 @@
   .topbarRight .publishBtn{padding:0 9px}
   .fullCodeEditor{min-height:46vh}
 }
+
+
+/* ===== Integrations v0.5 ===== */
+.integrationsPage{min-height:100vh;padding:38px;background:#080b10;color:#f5f7fb}
+.integrationsTop{max-width:1180px;margin:0 auto 22px;display:flex;justify-content:space-between;gap:22px;align-items:flex-start}
+.backLink{display:inline-block;color:#7f8b9f;text-decoration:none;font-size:12px;margin-bottom:18px}
+.integrationsTop h1{font-size:38px;letter-spacing:-1.4px;margin:7px 0 8px}.integrationsTop p{margin:0;color:#8792a4;max-width:720px;line-height:1.55}
+.integrationSummary{min-width:150px;border:1px solid #232b37;background:#0f141b;border-radius:16px;padding:16px;text-align:center}
+.integrationSummary strong{display:block;font-size:30px}.integrationSummary span{font-size:10px;color:#7e899b}
+.integrationNotice{max-width:1180px;margin:0 auto 16px;padding:11px 13px;border-radius:11px;background:#101b17;border:1px solid #234635;color:#a8efc0;font-size:12px}
+.integrationSection{max-width:1180px;margin:0 auto 18px;background:#0e1218;border:1px solid #222a36;border-radius:20px;padding:20px}
+.integrationSectionHead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.integrationSectionHead h2{margin:0 0 5px;font-size:20px}.integrationSectionHead p{margin:0;color:#7d889a;font-size:12px;line-height:1.5}
+.freeBadge,.connectionPill{font-size:9px;letter-spacing:.7px;text-transform:uppercase;border:1px solid #303948;border-radius:999px;padding:6px 9px;color:#8f9bad;white-space:nowrap}
+.connectionPill.on{border-color:#28543c;color:#7fe4a7;background:#102019}
+.providerGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.providerCard,.githubConnectCard,.repoCard{border:1px solid #252d39;background:#0b0f15;border-radius:14px;padding:14px}
+.providerCardTop{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.providerCard strong,.providerCard small{display:block}.providerCard small{color:#778294;font-size:10px;line-height:1.45;margin-top:4px}
+.providerCard input,.githubConnectCard input{width:100%;margin-top:12px;background:#090c11;border:1px solid #2a3341;border-radius:10px;color:#fff;padding:11px 12px;outline:none}
+.providerCard input:focus,.githubConnectCard input:focus{border-color:#59677e}
+.providerActions,.githubCredentialRow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.providerActions button,.githubCredentialRow button,.repoCard button{border:1px solid #2b3442;background:#131923;color:#c9d1dc;border-radius:9px;padding:9px 11px;cursor:pointer;font-size:11px}
+.providerActions .primaryAction,.githubCredentialRow .primaryAction,.repoCard .primaryAction{background:#f6f7f9;color:#090b10;border-color:#f6f7f9;font-weight:800}
+.providerActions button:disabled,.githubCredentialRow button:disabled,.repoCard button:disabled{opacity:.5;cursor:not-allowed}
+.githubCredentialRow{align-items:center}.githubCredentialRow input{flex:1;min-width:260px;margin:0}.githubConnectCard>small{display:block;color:#798496;margin-top:9px}
+.repoGrid{display:grid;gap:9px;margin-top:12px}.repoCard{display:flex;justify-content:space-between;gap:14px;align-items:center}.repoCard strong,.repoCard small{display:block}.repoCard small{font-size:10px;color:#748093;margin-top:4px}
+@media(max-width:760px){.integrationsPage{padding:22px 12px}.integrationsTop{flex-direction:column}.integrationsTop h1{font-size:31px}.providerGrid{grid-template-columns:1fr}.integrationSectionHead{flex-direction:column}.repoCard{align-items:flex-start;flex-direction:column}.githubCredentialRow{align-items:stretch;flex-direction:column}.githubCredentialRow input{min-width:0}.integrationSummary{width:100%}}
