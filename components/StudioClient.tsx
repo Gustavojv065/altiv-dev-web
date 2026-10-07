@@ -12,6 +12,7 @@ type AgentResponse = {
   versionNumber?: number
   qualityScore?: number
   qualityIssues?: string[]
+  activeSkills?: Array<{ id: string; label: string }>
   error?: string
 }
 
@@ -388,6 +389,12 @@ export default function StudioClient({
                       <div className="workingLine"><i/><i/><i/> Gerando e salvando a próxima versão…</div>
                     </article>
                   )}
+                  {result?.activeSkills?.length ? (
+                    <article className="messageBubble assistant">
+                      <div className="messageMeta"><span>Skills utilizadas</span></div>
+                      <p>{result.activeSkills.map((skill) => skill.label).join(' · ')}</p>
+                    </article>
+                  ) : null}
                   {result?.qualityScore !== undefined && result.ok && (
                     <article className="messageBubble quality">
                       <div className="messageMeta"><span>Quality Gate</span><span>{result.qualityScore}/100</span></div>
