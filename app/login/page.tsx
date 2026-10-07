@@ -11,7 +11,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <form>
           <label>Nome</label><input name="display_name" placeholder="Seu nome" />
           <label>E-mail</label><input name="email" type="email" required placeholder="voce@email.com" />
-          <label>Senha</label><input name="password" type="password" minLength={6} required placeholder="••••••••" />
+          <label>Senha</label><input name="password" type="password" minLength={12} required placeholder="12+ caracteres" /><small className="authPasswordHint">Use 12+ caracteres com maiúscula, minúscula, número e símbolo. Senhas vazadas são bloqueadas.</small>
           <div className="authActions"><button formAction={login} className="authPrimary">Entrar</button><button formAction={signup} className="authSecondary">Criar conta</button></div>
         </form>
       </section>
