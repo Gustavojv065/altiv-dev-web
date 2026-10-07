@@ -34,6 +34,7 @@ type Version = {
 
 type Panel = 'chat' | 'files' | 'code' | 'versions'
 type Device = 'desktop' | 'tablet' | 'mobile'
+type ProjectFile = { path: string; content: string; revision: number; language: string }
 
 function timeLabel(value: string) {
   try {
@@ -72,6 +73,8 @@ export default function StudioClient({
   const [refreshKey, setRefreshKey] = useState(0)
   const [restoring, setRestoring] = useState<number | null>(null)
   const [codeDraft, setCodeDraft] = useState(initialHtml)
+  const [files, setFiles] = useState<ProjectFile[]>([{ path: 'index.html', content: initialHtml, revision: initialRevision, language: 'html' }])
+  const [selectedPath, setSelectedPath] = useState('index.html')
   const [savingCode, setSavingCode] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
@@ -90,8 +93,31 @@ export default function StudioClient({
   }, [messages, running, result])
 
   useEffect(() => {
-    setCodeDraft(previewHtml)
-  }, [previewHtml])
+    if (selectedPath === 'index.html') {
+      setCodeDraft(previewHtml)
+      setFiles((old) => old.map((file) => file.path === 'index.html'
+        ? { ...file, content: previewHtml, revision } : file))
+    }
+  }, [previewHtml, revision, selectedPath])
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/projects/' + projectId + '/files', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => {
+        if (active && data.ok && Array.isArray(data.files)) setFiles(data.files)
+      })
+      .catch(() => {})
+    return () => { active = false }
+  }, [projectId])
+
+  function selectFile(path: string) {
+    const file = files.find((item) => item.path === path)
+    if (!file) return
+    setSelectedPath(path)
+    setCodeDraft(file.content)
+    setPanel('code')
+  }
 
   useEffect(() => {
     if (!running) return
@@ -225,36 +251,34 @@ export default function StudioClient({
   }
 
   async function saveCode() {
-    if (savingCode || !codeDraft.trim()) return
+    if (savingCode || (selectedPath === 'index.html' && !codeDraft.trim())) return
     setSavingCode(true)
     setResult(null)
     try {
-      const response = await fetch('/api/projects/' + projectId + '/code', {
+      const isHtml = selectedPath === 'index.html'
+      const response = await fetch('/api/projects/' + projectId + (isHtml ? '/code' : '/file-save'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ html: codeDraft }),
+        body: JSON.stringify(isHtml ? { html: codeDraft } : { path: selectedPath, content: codeDraft }),
       })
       const data = await response.json()
       if (!response.ok || !data?.ok) {
-        setResult({ ok: false, error: data?.error ?? 'Não foi possível salvar o código.' })
+        setResult({ ok: false, error: data?.error ?? 'Não foi possível salvar.' })
         return
       }
-
-      setPreviewHtml(data.html)
-      setRevision(Number(data.revision))
-      setRefreshKey((v) => v + 1)
-      setVersions((current) => [
-        {
-          id: 'manual-' + Date.now(),
-          version_number: Number(data.versionNumber),
-          summary: 'Edição manual do código',
-          created_at: new Date().toISOString(),
-          metadata: { source: 'code-editor' },
-        },
-        ...current,
-      ])
+      setFiles((old) => old.map((file) => file.path === selectedPath
+        ? { ...file, content: codeDraft, revision: Number(data.revision) } : file))
+      if (isHtml) {
+        setPreviewHtml(data.html)
+        setRevision(Number(data.revision))
+        setVersions((old) => [{
+          id: 'manual-' + Date.now(), version_number: Number(data.versionNumber),
+          summary: 'Edição manual do código', created_at: new Date().toISOString(),
+        }, ...old])
+      }
+      setRefreshKey((value) => value + 1)
     } catch (error) {
-      setResult({ ok: false, error: error instanceof Error ? error.message : 'Falha ao salvar código.' })
+      setResult({ ok: false, error: error instanceof Error ? error.message : 'Falha ao salvar.' })
     } finally {
       setSavingCode(false)
     }
@@ -433,16 +457,14 @@ export default function StudioClient({
 
         {panel === 'files' && (
           <div className="sideContent">
-            <div className="sideIntro"><h2>Arquivos</h2><p>Arquivos reais salvos neste projeto.</p></div>
-            <button className="fileRow active">
-              <span>◇</span>
-              <div><strong>index.html</strong><small>HTML · revisão {revision || 0}</small></div>
-              <em>{previewHtml ? Math.round(previewHtml.length / 1024) + ' KB' : '0 KB'}</em>
-            </button>
-            <div className="codePreview">
-              <div className="codePreviewHead">index.html</div>
-              <pre>{previewHtml ? previewHtml.slice(0, 4500) : 'O arquivo será criado no primeiro pedido.'}</pre>
-            </div>
+            <div className="sideIntro"><h2>Arquivos</h2><p>Arquivos reais do projeto. Selecione um para editar.</p></div>
+            {files.map((file) => (
+              <button className="fileRow" key={file.path} onClick={() => selectFile(file.path)}>
+                <span>◇</span>
+                <div><strong>{file.path}</strong><small>{file.language} · revisão {file.revision}</small></div>
+                <em>{Math.round(file.content.length / 1024)} KB</em>
+              </button>
+            ))}
           </div>
         )}
 
@@ -450,20 +472,18 @@ export default function StudioClient({
           <div className="sideContent codeEditorPanel">
             <div className="sideIntro">
               <h2>Código</h2>
-              <p>Edite o HTML real do projeto. Salvar cria uma nova versão automaticamente.</p>
+              <p>Escolha o arquivo e salve alterações diretamente no projeto.</p>
             </div>
             <div className="codeEditorHead">
-              <span>index.html</span>
-              <button onClick={saveCode} disabled={savingCode || !codeDraft.trim()}>
-                {savingCode ? 'Salvando…' : 'Salvar código'}
+              <select value={selectedPath} onChange={(event) => selectFile(event.target.value)}>
+                {files.map((file) => <option value={file.path} key={file.path}>{file.path}</option>)}
+              </select>
+              <button onClick={saveCode} disabled={savingCode}>
+                {savingCode ? 'Salvando…' : 'Salvar arquivo'}
               </button>
             </div>
-            <textarea
-              className="fullCodeEditor"
-              value={codeDraft}
-              onChange={(e) => setCodeDraft(e.target.value)}
-              spellCheck={false}
-            />
+            <textarea className="fullCodeEditor" value={codeDraft}
+              onChange={(event) => setCodeDraft(event.target.value)} spellCheck={false} />
           </div>
         )}
 
