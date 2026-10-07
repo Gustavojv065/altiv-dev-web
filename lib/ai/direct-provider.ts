@@ -2,7 +2,13 @@ import type { ProviderRoute } from './provider-catalog'
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 
-function providerConfig(route: ProviderRoute) {
+type ProviderConfig = {
+  key: string | undefined
+  url: string
+  headers: Record<string, string>
+}
+
+function providerConfig(route: ProviderRoute): ProviderConfig | null {
   switch (route.provider) {
     case 'openrouter':
       return {
@@ -11,7 +17,7 @@ function providerConfig(route: ProviderRoute) {
         headers: {
           'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://altiv.online',
           'X-Title': 'ALTIV DEV',
-        },
+        } satisfies Record<string, string>,
       }
     case 'opencode-zen':
       return {
