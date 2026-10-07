@@ -33,6 +33,7 @@ export default async function AdminPage() {
         <nav className="adminNav">
           <a className="active">Visão geral</a>
           <a href="/admin/clients">Clientes</a>
+          <a href="/admin/plans">Planos e preços</a>
           <a href="/workspace">Workspace</a>
           <a href="/integrations">Integrações</a>
         </nav>
