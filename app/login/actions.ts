@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { validateNewPassword } from '@/lib/security/passwords'
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim()
@@ -21,6 +22,8 @@ export async function signup(formData: FormData) {
   const email = value(formData, 'email')
   const password = value(formData, 'password')
   const displayName = value(formData, 'display_name')
+  const passwordError = await validateNewPassword(password)
+  if (passwordError) redirect('/login?error=' + encodeURIComponent(passwordError))
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://altiv-dev-web.vercel.app'
   const { error } = await supabase.auth.signUp({
     email,
