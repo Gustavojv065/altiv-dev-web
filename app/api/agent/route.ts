@@ -3,6 +3,7 @@ import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { classifyTask, PIPELINE } from '@/lib/agent/pipeline'
 import { analyzeHtmlQuality } from '@/lib/agent/quality'
+import { buildSkillInstructions, selectAltivSkills } from '@/lib/agent/skills'
 import { createClient } from '@/lib/supabase/server'
 
 export const maxDuration = 300
@@ -558,7 +559,10 @@ export async function POST(req: NextRequest) {
       .join('\n')
       .slice(0, 5000)
 
-    const spec = await generateSiteSpec(prompt, currentSpecRow?.spec, memoryText)
+    const activeSkills = selectAltivSkills(prompt)
+    const skillInstructions = buildSkillInstructions(prompt)
+    const enrichedPrompt = prompt + (skillInstructions ? '\n\nSKILLS ATIVAS:\n' + skillInstructions : '')
+    const spec = await generateSiteSpec(enrichedPrompt, currentSpecRow?.spec, memoryText)
 
     await supabase
       .from('project_specs')
@@ -572,7 +576,7 @@ export async function POST(req: NextRequest) {
     await markStep('plan', 'completed')
     await markStep('generate', 'running')
 
-    const generated = await generateWebsite(prompt, currentFile?.content, spec, memoryText)
+    const generated = await generateWebsite(enrichedPrompt, currentFile?.content, spec, memoryText)
 
     await markStep('generate', 'completed')
     await markStep('validate', 'running')
@@ -586,7 +590,7 @@ export async function POST(req: NextRequest) {
     if (quality.score < 84 && quality.issues.length) {
       await markStep('review', 'completed')
       await markStep('repair', 'running')
-      finalHtml = await repairHtml(prompt, finalHtml, quality.issues, spec)
+      finalHtml = await repairHtml(enrichedPrompt, finalHtml, quality.issues, spec)
       quality = analyzeHtmlQuality(finalHtml)
       await markStep('repair', 'completed')
     } else {
@@ -649,6 +653,7 @@ export async function POST(req: NextRequest) {
         run_id: runId,
         quality_score: quality.score,
         quality_issues: quality.issues,
+        skills: activeSkills.map((skill) => skill.id),
         site_spec: spec,
       },
     })
@@ -735,6 +740,7 @@ export async function POST(req: NextRequest) {
       versionNumber,
       qualityScore: quality.score,
       qualityIssues: quality.issues,
+      activeSkills: activeSkills.map((skill) => ({ id: skill.id, label: skill.label })),
       siteSpec: spec,
       persisted: true,
       realGeneration: true,
