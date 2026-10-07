@@ -566,3 +566,19 @@
 .githubCredentialRow{align-items:center}.githubCredentialRow input{flex:1;min-width:260px;margin:0}.githubConnectCard>small{display:block;color:#798496;margin-top:9px}
 .repoGrid{display:grid;gap:9px;margin-top:12px}.repoCard{display:flex;justify-content:space-between;gap:14px;align-items:center}.repoCard strong,.repoCard small{display:block}.repoCard small{font-size:10px;color:#748093;margin-top:4px}
 @media(max-width:760px){.integrationsPage{padding:22px 12px}.integrationsTop{flex-direction:column}.integrationsTop h1{font-size:31px}.providerGrid{grid-template-columns:1fr}.integrationSectionHead{flex-direction:column}.repoCard{align-items:flex-start;flex-direction:column}.githubCredentialRow{align-items:stretch;flex-direction:column}.githubCredentialRow input{min-width:0}.integrationSummary{width:100%}}
+
+
+/* ===== SaaS Admin v0.6 ===== */
+.adminShell{min-height:100vh;background:#080b10;color:#f4f7fb;display:grid;grid-template-columns:230px 1fr}
+.adminSidebar{border-right:1px solid #202733;background:#0b0f15;padding:22px 16px;position:sticky;top:0;height:100vh}
+.adminNav{display:grid;gap:7px;margin-top:28px}.adminNav a{color:#8a95a6;text-decoration:none;padding:10px 11px;border-radius:9px;font-size:12px}.adminNav a:hover,.adminNav a.active{background:#141a23;color:#fff}
+.adminMain{padding:34px;min-width:0}.adminTop{max-width:1260px;margin:0 auto 18px}.adminTop h1{font-size:34px;margin:7px 0 6px;letter-spacing:-1px}.adminTop p{color:#7f8b9d;margin:0}
+.adminMetrics{max-width:1260px;margin:0 auto 16px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.adminMetric{background:#0e131a;border:1px solid #232b37;border-radius:14px;padding:15px}.adminMetric span{display:block;color:#748094;font-size:10px;text-transform:uppercase;letter-spacing:.7px}.adminMetric strong{display:block;font-size:28px;margin-top:7px}
+.adminPanel{max-width:1260px;margin:0 auto 14px;background:#0e1218;border:1px solid #222a36;border-radius:18px;padding:18px}
+.adminPlanGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.adminPlanCard{background:#0a0e14;border:1px solid #252e3a;border-radius:13px;padding:14px}.adminPlanCard span{font-size:10px;color:#8490a3;text-transform:uppercase;letter-spacing:.8px}.adminPlanCard strong{display:block;font-size:17px;margin:8px 0}.adminPlanCard small{display:block;color:#768295;font-size:10px;line-height:1.7}
+.adminChecklist{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.adminChecklist span{border:1px solid #263040;background:#0b1017;border-radius:10px;padding:11px;color:#b9c2cf;font-size:11px}
+@media(max-width:1000px){.adminMetrics{grid-template-columns:repeat(2,1fr)}.adminPlanGrid{grid-template-columns:repeat(2,1fr)}.adminChecklist{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.adminShell{display:block}.adminSidebar{height:auto;position:relative;border-right:0;border-bottom:1px solid #202733}.adminNav{grid-template-columns:repeat(3,1fr);margin-top:16px}.adminMain{padding:22px 12px}.adminMetrics{grid-template-columns:repeat(2,1fr)}.adminPlanGrid,.adminChecklist{grid-template-columns:1fr}.adminTop h1{font-size:29px}}
+
+.adminTableWrap{overflow-x:auto}.adminTable{width:100%;border-collapse:collapse;min-width:720px}.adminTable th,.adminTable td{text-align:left;padding:12px 10px;border-bottom:1px solid #202833;font-size:11px}.adminTable th{color:#758196;font-size:9px;text-transform:uppercase;letter-spacing:.7px}.adminTable td{color:#c4ccd8}.adminTable td strong,.adminTable td small{display:block}.adminTable td small{color:#6f7b8e;margin-top:3px}
+.workspacePlan{display:inline-block;margin-top:9px;color:#8f9bad;font-size:11px}

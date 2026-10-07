@@ -9,6 +9,8 @@ import { providerRoutesFor } from '@/lib/ai/provider-catalog'
 import { callWithFallback } from '@/lib/ai/direct-provider'
 import { callUserFallback, type UserProviderKeys } from '@/lib/ai/byok-provider'
 import { getCredential } from '@/lib/integrations/user-credentials'
+import { recordUsage } from '@/lib/saas/usage'
+import { assertAgentRunLimit } from '@/lib/saas/account'
 
 export const maxDuration = 300
 
@@ -507,6 +509,12 @@ export async function POST(req: NextRequest) {
   }
 
   const ownerId = String(claimsData.claims.sub)
+  try {
+    await assertAgentRunLimit(ownerId)
+  } catch (error) {
+    return NextResponse.json({ ok:false, error:error instanceof Error ? error.message : 'Limite de IA atingido.' }, { status:429 })
+  }
+
   const { data: project } = await supabase
     .from('projects')
     .select('id,name')
@@ -793,6 +801,18 @@ export async function POST(req: NextRequest) {
         revision,
         provider: generated.provider,
         quality_score: quality.score,
+      },
+    })
+
+    await recordUsage({
+      ownerId,
+      type:'agent_run',
+      metadata:{
+        projectId,
+        runId,
+        model:generated.model,
+        provider:generated.provider,
+        qualityScore:quality.score,
       },
     })
 

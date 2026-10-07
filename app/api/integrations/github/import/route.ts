@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getCredential } from '@/lib/integrations/user-credentials'
 import { githubRequest } from '@/lib/github/client'
+import { recordUsage } from '@/lib/saas/usage'
+import { assertProjectLimit } from '@/lib/saas/account'
 
 export const maxDuration = 300
 
@@ -28,6 +30,7 @@ export async function POST(req:NextRequest) {
   }
 
   try {
+    const accountContext = await assertProjectLimit(ownerId)
     const credential = await getCredential(ownerId, 'github')
     const token = credential?.secret || process.env.GITHUB_TOKEN
     if (!token) return NextResponse.json({ ok:false, error:'GitHub não conectado.' }, { status:400 })
@@ -47,6 +50,7 @@ export async function POST(req:NextRequest) {
 
     const projectInsert = await supabase.from('projects').insert({
       owner_id: ownerId,
+      account_id: accountContext.account.id,
       name: repo.name,
       status: 'draft',
       github_repo: repo.full_name,
@@ -84,6 +88,8 @@ export async function POST(req:NextRequest) {
       const write = await supabase.from('project_files').upsert(rows, { onConflict:'project_id,path' })
       if (write.error) throw write.error
     }
+
+    await recordUsage({ ownerId, type:'github_import', metadata:{ projectId, repository:repo.full_name, importedFiles:rows.length } })
 
     return NextResponse.json({
       ok:true,
