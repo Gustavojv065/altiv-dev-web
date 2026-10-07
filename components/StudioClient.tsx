@@ -233,6 +233,7 @@ export default function StudioClient({
 
       setPreviewHtml(data.html)
       setRevision(Number(data.revision))
+      if (Array.isArray(data.files)) setFiles(data.files)
       setRefreshKey((v) => v + 1)
       setPanel('chat')
       setMessages((current) => [
@@ -270,6 +271,12 @@ export default function StudioClient({
       }
       setFiles((old) => old.map((file) => file.path === selectedPath
         ? { ...file, content: codeDraft, revision: Number(data.revision) } : file))
+      if (!isHtml && data.versionNumber) {
+        setVersions((old) => [{
+          id: 'asset-' + Date.now(), version_number: Number(data.versionNumber),
+          summary: 'Edição manual de ' + selectedPath, created_at: new Date().toISOString(),
+        }, ...old])
+      }
       if (isHtml) {
         setPreviewHtml(data.html)
         setRevision(Number(data.revision))
