@@ -63,5 +63,5 @@ export function providerRoutesFor(task: AgentTask, preferFree = true, available?
 
 export function configuredProviders(): ProviderId[] {
   return (['openrouter', 'opencode-zen', 'openai', 'gemini', 'nvidia'] as ProviderId[])
-    .filter(hasProviderKey)
+    .filter((provider) => hasProviderKey(provider))
 }
