@@ -579,3 +579,6 @@
 .adminChecklist{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}.adminChecklist span{border:1px solid #263040;background:#0b1017;border-radius:10px;padding:11px;color:#b9c2cf;font-size:11px}
 @media(max-width:1000px){.adminMetrics{grid-template-columns:repeat(2,1fr)}.adminPlanGrid{grid-template-columns:repeat(2,1fr)}.adminChecklist{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){.adminShell{display:block}.adminSidebar{height:auto;position:relative;border-right:0;border-bottom:1px solid #202733}.adminNav{grid-template-columns:repeat(3,1fr);margin-top:16px}.adminMain{padding:22px 12px}.adminMetrics{grid-template-columns:repeat(2,1fr)}.adminPlanGrid,.adminChecklist{grid-template-columns:1fr}.adminTop h1{font-size:29px}}
+
+.adminTableWrap{overflow-x:auto}.adminTable{width:100%;border-collapse:collapse;min-width:720px}.adminTable th,.adminTable td{text-align:left;padding:12px 10px;border-bottom:1px solid #202833;font-size:11px}.adminTable th{color:#758196;font-size:9px;text-transform:uppercase;letter-spacing:.7px}.adminTable td{color:#c4ccd8}.adminTable td strong,.adminTable td small{display:block}.adminTable td small{color:#6f7b8e;margin-top:3px}
+.workspacePlan{display:inline-block;margin-top:9px;color:#8f9bad;font-size:11px}
