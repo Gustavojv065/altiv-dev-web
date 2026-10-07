@@ -14,6 +14,9 @@ type AgentResponse = {
   qualityScore?: number
   qualityIssues?: string[]
   activeSkills?: Array<{ id: string; label: string }>
+  changedFiles?: string[]
+  filePlan?: { mode: 'targeted' | 'full'; targets: string[]; reason: string }
+  files?: ProjectFile[]
   error?: string
 }
 
@@ -165,18 +168,33 @@ export default function StudioClient({
     setPanel('chat')
 
     try {
-      const response = await fetch('/api/agent', {
+      let response = await fetch('/api/projects/' + projectId + '/targeted-edit', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ prompt: value, projectId }),
+        body: JSON.stringify({ prompt: value }),
       })
-      const data: AgentResponse = await response.json()
+      let data: AgentResponse & { fallback?: boolean } = await response.json()
+
+      if (response.status === 409 && data.fallback) {
+        response = await fetch('/api/agent', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ prompt: value, projectId }),
+        })
+        data = await response.json()
+      }
+
       setResult(data)
 
       if (data.ok) {
         if (data.html) {
           setPreviewHtml(data.html)
           setRevision(data.revision ?? revision + 1)
+          if (Array.isArray(data.files)) {
+            setFiles(data.files)
+            const selected = data.files.find((file) => file.path === selectedPath)
+            if (selected) setCodeDraft(selected.content)
+          }
           setRefreshKey((v) => v + 1)
         }
 
@@ -426,6 +444,12 @@ export default function StudioClient({
                     <article className="messageBubble assistant">
                       <div className="messageMeta"><span>Skills utilizadas</span></div>
                       <p>{result.activeSkills.map((skill) => skill.label).join(' · ')}</p>
+                    </article>
+                  ) : null}
+                  {result?.changedFiles?.length ? (
+                    <article className="messageBubble assistant">
+                      <div className="messageMeta"><span>Edição inteligente</span><span>{result.filePlan?.mode === 'targeted' ? 'cirúrgica' : 'completa'}</span></div>
+                      <p>Arquivos alterados: {result.changedFiles.join(' · ')}</p>
                     </article>
                   ) : null}
                   {result?.qualityScore !== undefined && result.ok && (
