@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import type { ProviderId } from '@/lib/ai/provider-catalog'
 
 async function testOpenAI(key:string) {
@@ -18,6 +19,9 @@ async function testZen(key:string) {
 }
 
 export async function POST(req:NextRequest) {
+  const supabase = await createClient()
+  const { data: claimsData, error: authError } = await supabase.auth.getClaims()
+  if (authError || !claimsData?.claims) return NextResponse.json({ ok:false, error:'Não autenticado.' }, { status:401 })
   const body = await req.json().catch(() => ({}))
   const provider = String(body?.provider ?? '') as ProviderId
   const key = String(body?.key ?? '').trim()
