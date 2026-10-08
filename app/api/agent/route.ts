@@ -671,9 +671,14 @@ export async function POST(req: NextRequest) {
     const skillInstructions = buildSkillInstructions(prompt)
 
     const mediaJobs:Array<{kind:string;status?:string;jobId?:string;outputUrl?:string}> = []
-    if (orchestration.needsMedia && (process.env.ALTIV_MEDIA_WORKER_URL || process.env.COMFYUI_BASE_URL)) {
+    if (orchestration.needsMedia) {
+      const mediaConfigured = Boolean(process.env.ALTIV_MEDIA_WORKER_URL || process.env.COMFYUI_BASE_URL)
       for (const kind of orchestration.mediaKinds) {
         if (kind !== 'image' && kind !== 'video') continue
+        if (!mediaConfigured) {
+          mediaJobs.push({ kind, status:'unavailable' })
+          continue
+        }
         try {
           const media = await generateMedia({
             kind,
@@ -691,7 +696,7 @@ export async function POST(req: NextRequest) {
     }
 
     const mediaContext = mediaJobs.length
-      ? '\n\nASSETS DE MÍDIA GERADOS/ENFILEIRADOS:\n' + mediaJobs.map((job)=>'- ' + job.kind + ': ' + (job.outputUrl || job.status || 'pendente')).join('\n')
+      ? '\n\nSTATUS DE MÍDIA:\n' + mediaJobs.map((job)=>'- ' + job.kind + ': ' + (job.outputUrl || job.status || 'pendente')).join('\n') + '\nNunca trate status unavailable/failed como mídia entregue.'
       : orchestration.needsMedia
         ? '\n\nMÍDIA: o pedido requer ' + orchestration.mediaKinds.join(', ') + '. Não invente URLs. Se o worker não fornecer um asset agora, crie o layout preparado para receber o asset depois.'
         : ''
