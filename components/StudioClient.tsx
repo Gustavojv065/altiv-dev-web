@@ -422,6 +422,7 @@ export default function StudioClient({
           <button className={panel === 'files' ? 'active' : ''} onClick={() => setPanel('files')} title="Arquivos"><span>▤</span><small>Arquivos</small></button>
           <button className={panel === 'code' ? 'active' : ''} onClick={() => setPanel('code')} title="Código"><span>&lt;/&gt;</span><small>Código</small></button>
           <button className={panel === 'versions' ? 'active' : ''} onClick={() => setPanel('versions')} title="Versões"><span>▱</span><small>Versões</small></button>
+          <a href={'/studio/' + projectId + '/media'} title="AI Mídia"><span>◈</span><small>Mídia</small></a>
         </div>
         <a className="railBack" href="/workspace" title="Projetos">←</a>
       </aside>
