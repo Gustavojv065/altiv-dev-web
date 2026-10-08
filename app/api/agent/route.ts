@@ -7,7 +7,7 @@ import { buildSkillInstructions, selectAltivSkills } from '@/lib/agent/skills'
 import { orchestrateRequest, orchestrationInstructions } from '@/lib/agent/orchestrator'
 import { generateMedia } from '@/lib/media/worker'
 import { createClient } from '@/lib/supabase/server'
-import { providerRoutesFor } from '@/lib/ai/provider-catalog'
+import { allProviderIds, providerRoutesFor, type ProviderRoute } from '@/lib/ai/provider-catalog'
 import { callWithFallback } from '@/lib/ai/direct-provider'
 import { callUserFallback, type UserProviderKeys } from '@/lib/ai/byok-provider'
 import { getCredential } from '@/lib/integrations/user-credentials'
@@ -369,13 +369,14 @@ async function generateWebsite(
   spec: SiteSpec,
   memoryText: string,
   task: ReturnType<typeof classifyTask>,
-  userKeys?: UserProviderKeys
+  userKeys?: UserProviderKeys,
+  userRoutesOverride?: ProviderRoute[]
 ) {
   const errors: string[] = []
 
   if (userKeys && Object.keys(userKeys).length) {
     const available = new Set(Object.keys(userKeys) as Array<keyof UserProviderKeys>)
-    const userRoutes = providerRoutesFor(task, true, available as Set<any>)
+    const userRoutes = userRoutesOverride?.length ? userRoutesOverride : providerRoutesFor(task, true, available as Set<any>)
     if (userRoutes.length) {
       try {
         const result = await callUserFallback(
@@ -709,18 +710,33 @@ export async function POST(req: NextRequest) {
     await markStep('plan', 'completed')
     await markStep('generate', 'running')
 
-    const providerIds = ['openrouter','opencode-zen','openai','gemini','nvidia'] as const
-    const pairs = await Promise.all(providerIds.map(async (provider) => {
+    const providerIds = allProviderIds()
+    const credentials = await Promise.all(providerIds.map(async (provider) => {
       try {
         const credential = await getCredential(ownerId, provider)
-        return credential?.secret ? [provider, credential.secret] as const : null
+        return credential?.secret ? { provider, secret:credential.secret, metadata:credential.metadata ?? {} } : null
       } catch {
         return null
       }
     }))
-    const userKeys = Object.fromEntries(pairs.filter(Boolean) as Array<readonly [string,string]>) as UserProviderKeys
+    const activeCredentials = credentials.filter((item): item is NonNullable<typeof item> => Boolean(item))
+    const userKeys = Object.fromEntries(activeCredentials.map((item)=>[item.provider,item.secret])) as UserProviderKeys
+    const manual = activeCredentials.find((item)=>Boolean(item.metadata?.manualActive) && typeof item.metadata?.selectedModel === 'string')
+    const manualRoutes:ProviderRoute[] | undefined = manual ? [{
+      provider:manual.provider,
+      model:String(manual.metadata.selectedModel),
+      role:'manual-user-selection',
+    }] : undefined
 
-    const generated = await generateWebsite(enrichedPrompt, currentFile?.content, spec, memoryText, task, userKeys)
+    const generated = await generateWebsite(
+      enrichedPrompt,
+      currentFile?.content,
+      spec,
+      memoryText,
+      task,
+      userKeys,
+      manualRoutes,
+    )
 
     await markStep('generate', 'completed')
     await markStep('validate', 'running')
