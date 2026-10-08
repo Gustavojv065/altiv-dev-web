@@ -62,3 +62,40 @@ export async function deleteCredential(ownerId: string, kind: CredentialKind) {
     .eq('kind', kind)
   if (error) throw error
 }
+
+
+export async function updateCredentialMetadata(ownerId:string, kind:CredentialKind, metadata:Record<string,unknown>) {
+  const supabase = await createClient()
+  const { data:current, error:readError } = await supabase
+    .from('user_credentials')
+    .select('metadata')
+    .eq('owner_id',ownerId)
+    .eq('kind',kind)
+    .maybeSingle()
+  if (readError) throw readError
+  if (!current) throw new Error('Credencial não encontrada.')
+  const { error } = await supabase
+    .from('user_credentials')
+    .update({ metadata:{ ...(current.metadata ?? {}), ...metadata }, updated_at:new Date().toISOString() })
+    .eq('owner_id',ownerId)
+    .eq('kind',kind)
+  if (error) throw error
+}
+
+export async function clearManualRouting(ownerId:string) {
+  const supabase = await createClient()
+  const { data:rows, error } = await supabase
+    .from('user_credentials')
+    .select('kind,metadata')
+    .eq('owner_id',ownerId)
+  if (error) throw error
+  for (const row of rows ?? []) {
+    const metadata = { ...(row.metadata ?? {}), manualActive:false }
+    const { error:updateError } = await supabase
+      .from('user_credentials')
+      .update({ metadata, updated_at:new Date().toISOString() })
+      .eq('owner_id',ownerId)
+      .eq('kind',row.kind)
+    if (updateError) throw updateError
+  }
+}
