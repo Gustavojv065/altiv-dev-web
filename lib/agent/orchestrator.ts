@@ -1,5 +1,6 @@
 import { selectAltivSkills } from '@/lib/agent/skills'
 import type { ProjectFileInfo } from '@/lib/agent/file-intelligence'
+import { detectNiche, nicheInstructions, type NicheProfile } from '@/lib/agent/niche'
 
 export type AgentRole =
   | 'orchestrator'
@@ -19,6 +20,7 @@ export type OrchestrationPlan = {
   requiresVisualVerification: boolean
   requiresRepositoryAnalysis: boolean
   requestedPalette: string[]
+  niche: NicheProfile
   checkpoints: string[]
 }
 
@@ -47,6 +49,7 @@ function requestedPalette(prompt:string) {
 export function orchestrateRequest(prompt:string, files:ProjectFileInfo[] = []):OrchestrationPlan {
   const text = prompt.toLowerCase()
   const roles:AgentRole[] = ['orchestrator']
+  const niche = detectNiche(prompt)
   const mediaKinds:OrchestrationPlan['mediaKinds'] = []
 
   const isCreate = /(crie|criar|novo site|do zero|landing page nova|construa)/i.test(text)
@@ -100,6 +103,7 @@ export function orchestrateRequest(prompt:string, files:ProjectFileInfo[] = []):
     requiresVisualVerification,
     requiresRepositoryAnalysis:true,
     requestedPalette:requestedPalette(prompt),
+    niche,
     checkpoints,
   }
 }
@@ -111,6 +115,7 @@ export function orchestrationInstructions(plan:OrchestrationPlan) {
     'Agentes: ' + plan.roles.join(' → '),
     'Skills: ' + plan.skills.map((skill)=>skill.label).join(', '),
     plan.requestedPalette.length ? 'Paleta pedida: ' + plan.requestedPalette.join(', ') : '',
+    nicheInstructions(plan.niche),
     plan.needsMedia ? 'Mídia requerida: ' + plan.mediaKinds.join(', ') : '',
     'Checkpoints:',
     ...plan.checkpoints.map((item)=>'- ' + item),
