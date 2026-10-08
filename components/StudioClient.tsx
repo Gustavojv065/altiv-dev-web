@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { previewEntries, renderStaticSite } from '@/lib/project/render'
 import { detectProjectRuntime } from '@/lib/project/runtime'
+import StudioConnectionsPanel from '@/components/StudioConnectionsPanel'
 
 type AgentResponse = {
   ok: boolean
@@ -38,7 +39,7 @@ type Version = {
   metadata?: Record<string, unknown> | null
 }
 
-type Panel = 'chat' | 'files' | 'code' | 'versions'
+type Panel = 'chat' | 'files' | 'code' | 'versions' | 'github' | 'ai'
 type Device = 'desktop' | 'tablet' | 'mobile'
 type ProjectFile = { path: string; content: string; revision: number; language: string }
 
@@ -429,6 +430,8 @@ export default function StudioClient({
           <button className={panel === 'files' ? 'active' : ''} onClick={() => setPanel('files')} title="Arquivos"><span>▤</span><small>Arquivos</small></button>
           <button className={panel === 'code' ? 'active' : ''} onClick={() => setPanel('code')} title="Código"><span>&lt;/&gt;</span><small>Código</small></button>
           <button className={panel === 'versions' ? 'active' : ''} onClick={() => setPanel('versions')} title="Versões"><span>▱</span><small>Versões</small></button>
+          <button className={panel === 'github' ? 'active' : ''} onClick={() => setPanel('github')} title="GitHub"><span>Git</span><small>GitHub</small></button>
+          <button className={panel === 'ai' ? 'active' : ''} onClick={() => setPanel('ai')} title="APIs e modelos"><span>AI</span><small>APIs</small></button>
           <a href={'/studio/' + projectId + '/media'} title="AI Mídia"><span>◈</span><small>Mídia</small></a>
         </div>
         <a className="railBack" href="/workspace" title="Projetos">←</a>
@@ -534,6 +537,10 @@ export default function StudioClient({
             </form>
           </>
         )}
+
+        {panel === 'github' && <StudioConnectionsPanel mode="github" />}
+
+        {panel === 'ai' && <StudioConnectionsPanel mode="ai" />}
 
         {panel === 'files' && (
           <div className="sideContent">
