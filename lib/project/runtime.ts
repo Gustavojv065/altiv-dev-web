@@ -21,6 +21,11 @@ function packageJson(files:FileLike[]) {
 }
 
 export function detectProjectRuntime(files:FileLike[]):RuntimeInfo {
+  const meaningfulFiles = files.filter((file)=>String(file.content ?? '').trim().length > 0)
+  if (!meaningfulFiles.length) {
+    return { kind:'unknown', label:'Novo projeto', previewMode:'static', reason:'Aguardando a primeira geração do ALTIV.' }
+  }
+
   const pkg = packageJson(files)
   const deps = JSON.stringify({
     ...((pkg?.dependencies as Record<string,unknown> | undefined) ?? {}),
