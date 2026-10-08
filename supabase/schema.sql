@@ -42,7 +42,7 @@ create policy "memories_delete_own" on public.agent_memories for delete to authe
 create table if not exists public.user_credentials (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
-  kind text not null check (kind in ('openrouter','opencode-zen','openai','gemini','nvidia','github')),
+  kind text not null check (kind in ('openrouter','opencode-zen','openai','gemini','nvidia','groq','cerebras','deepseek','mistral','together','fireworks','xai','anthropic','github')),
   label text not null,
   encrypted_secret text not null,
   secret_iv text not null,
