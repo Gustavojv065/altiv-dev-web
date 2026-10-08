@@ -1,3 +1,5 @@
+import type { NicheProfile } from '@/lib/agent/niche'
+
 export type QualityReport = {
   score: number
   issues: string[]
@@ -42,4 +44,68 @@ export function analyzeHtmlQuality(html: string): QualityReport {
   penalty += check('limitedInlineStyles', inlineStyles <= 8, 'Evite excesso de estilos inline', 3)
 
   return { score: Math.max(0, Math.min(100, 100 - penalty)), issues, checks }
+}
+
+
+export type RequestAlignmentReport = {
+  score:number
+  issues:string[]
+  checks:Record<string,boolean>
+}
+
+function countMatches(text:string, pattern:RegExp) {
+  return (text.match(pattern) ?? []).length
+}
+
+export function analyzeRequestAlignment(
+  html:string,
+  prompt:string,
+  niche:NicheProfile,
+  mediaJobs:Array<{kind:string;status?:string;outputUrl?:string}> = []
+):RequestAlignmentReport {
+  const issues:string[]=[]
+  const checks:Record<string,boolean>={}
+  let penalty=0
+
+  function check(name:string, ok:boolean, issue:string, weight:number) {
+    checks[name]=ok
+    if (!ok) {
+      issues.push(issue)
+      penalty += weight
+    }
+  }
+
+  const lower=html.toLowerCase()
+  const promptLower=prompt.toLowerCase()
+  const textOnly=lower.replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ')
+  const wantsImage=/(imagem|imagens|foto|fotos|galeria|fotografia)/i.test(promptLower)
+  const wantsVideo=/(vídeo|video|reel|clipe)/i.test(promptLower)
+
+  const imageCount=countMatches(lower,/<img\b/gi) + countMatches(lower,/background-image\s*:/gi)
+  const videoCount=countMatches(lower,/<video[^>]+src=["'][^"']+["']/gi) + countMatches(lower,/<source[^>]+src=["'][^"']+["']/gi) + countMatches(lower,/<iframe[^>]+(?:youtube|vimeo)/gi)
+  const hasHero=/(class=["'][^"']*hero|id=["']hero|<section[^>]*>[^<]*(?:<[^>]+>)*[^<]*(?:agendar|explorar|saiba mais))/i.test(lower)
+  const heroVisual=/(hero[\s\S]{0,5000}(<img\b|<video\b|background-image\s*:))/i.test(lower)
+  const ctaCount=countMatches(lower,/(agendar|reservar|whatsapp|explorar serviços|explorar servicos|fale conosco|entrar em contato)/gi)
+
+  check('niche-specific', niche.id === 'generic' || niche.preferredContent.some((item)=>textOnly.includes(item.toLowerCase())),
+    'O conteúdo ainda está genérico e pouco específico para '+niche.label+'.', 18)
+
+  const forbiddenHits=niche.forbiddenContent.filter((item)=>textOnly.includes(item.toLowerCase()))
+  check('niche-consistency', forbiddenHits.length === 0,
+    'Conteúdo fora do nicho encontrado: '+forbiddenHits.join(', ')+'.', 28)
+
+  check('hero-structure', hasHero, 'O topo precisa de um hero claro com proposta de valor e CTA.', 12)
+  check('hero-visual', !wantsImage || heroVisual, 'O hero está visualmente fraco; use imagem/vídeo coerente em destaque.', 14)
+  check('cta-strength', ctaCount >= 2, 'Poucos CTAs claros para uma página comercial.', 8)
+  check('image-request', !wantsImage || imageCount >= 3, 'O pedido solicitou imagens, mas há poucas imagens integradas ao layout.', 14)
+
+  const successfulVideoJob=mediaJobs.some((job)=>job.kind==='video' && Boolean(job.outputUrl) && job.status !== 'failed')
+  check('video-request', !wantsVideo || videoCount > 0 || successfulVideoJob,
+    'O pedido solicitou vídeo, mas nenhum vídeo real foi inserido ou retornado pelo motor de mídia.', 18)
+
+  const looksVerySparse = html.length < 8000 || (imageCount === 0 && countMatches(lower,/<section\b/gi) < 5)
+  check('content-density', !looksVerySparse,
+    'A página está simples ou vazia demais para o nível premium solicitado.', 12)
+
+  return { score:Math.max(0,Math.min(100,100-penalty)), issues, checks }
 }
