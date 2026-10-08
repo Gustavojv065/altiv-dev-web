@@ -599,3 +599,17 @@
 }
 .pageSelectBtn{appearance:auto}
 @media(max-width:980px){.runtimeBadge{display:none}}
+
+
+/* ===== AI Engine Manager v1.4 ===== */
+.modelPicker{margin-top:12px;padding-top:12px;border-top:1px solid #202938;display:grid;gap:8px}
+.modelPicker label{font-size:9px;text-transform:uppercase;letter-spacing:.7px;color:#7f8a9c}
+.modelPicker select{
+  width:100%;background:#090d13;border:1px solid #293342;border-radius:9px;
+  color:#e8edf4;padding:9px 10px;font-size:10px
+}
+.modelPicker .primaryAction,.engineModeButton{
+  border:1px solid #f5f7fa;background:#f5f7fa;color:#0b0e13;
+  border-radius:9px;padding:9px 11px;font-size:10px;font-weight:800;cursor:pointer
+}
+.engineModeButton:disabled,.modelPicker .primaryAction:disabled{opacity:.5;cursor:not-allowed}

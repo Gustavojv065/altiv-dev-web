@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { deleteCredential, listCredentialStates, saveCredential, type CredentialKind } from '@/lib/integrations/user-credentials'
 
-const allowed = new Set<CredentialKind>(['openrouter','opencode-zen','openai','gemini','nvidia','github'])
+const allowed = new Set<CredentialKind>(['openrouter','opencode-zen','openai','gemini','nvidia','groq','cerebras','deepseek','mistral','together','fireworks','xai','anthropic','github'])
 
 async function ownerId() {
   const supabase = await createClient()
