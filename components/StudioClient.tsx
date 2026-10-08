@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { renderStaticSite } from '@/lib/project/render'
+import { previewEntries, renderStaticSite } from '@/lib/project/render'
 
 type AgentResponse = {
   ok: boolean
@@ -16,6 +16,7 @@ type AgentResponse = {
   activeSkills?: Array<{ id: string; label: string }>
   changedFiles?: string[]
   filePlan?: { mode: 'targeted' | 'full'; targets: string[]; reason: string }
+  orchestration?: { intent:string; roles:string[]; needsMedia:boolean; mediaKinds:string[]; requestedPalette:string[] }
   files?: ProjectFile[]
   error?: string
 }
@@ -85,7 +86,9 @@ export default function StudioClient({
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
   const [healthScore, setHealthScore] = useState<number | null>(null)
   const [checkingHealth, setCheckingHealth] = useState(false)
-  const renderedHtml = useMemo(() => renderStaticSite(files), [files])
+  const [previewEntry, setPreviewEntry] = useState('index.html')
+  const previewPages = useMemo(() => previewEntries(files), [files])
+  const renderedHtml = useMemo(() => renderStaticSite(files, previewEntry), [files, previewEntry])
   const feedRef = useRef<HTMLDivElement>(null)
 
   const status = useMemo(() => {
@@ -474,6 +477,12 @@ export default function StudioClient({
                       <div className="workingLine"><i/><i/><i/> Gerando e salvando a próxima versão…</div>
                     </article>
                   )}
+                  {result?.orchestration?.roles?.length ? (
+                    <article className="messageBubble assistant">
+                      <div className="messageMeta"><span>Orquestrador</span><span>{result.orchestration.intent}</span></div>
+                      <p>{result.orchestration.roles.join(' → ')}{result.orchestration.needsMedia ? ' · mídia: ' + result.orchestration.mediaKinds.join(', ') : ''}</p>
+                    </article>
+                  ) : null}
                   {result?.activeSkills?.length ? (
                     <article className="messageBubble assistant">
                       <div className="messageMeta"><span>Skills utilizadas</span></div>
@@ -515,7 +524,7 @@ export default function StudioClient({
                   {revision > 0 && <span>r{revision}</span>}
                 </div>
                 <button className="buildButton" disabled={running || !prompt.trim()}>
-                  {running ? 'Gerando…' : 'Construir ↑'}
+                  {running ? 'Orquestrando…' : 'Construir ↑'}
                 </button>
               </div>
             </form>
@@ -580,18 +589,22 @@ export default function StudioClient({
           </div>
 
           <div className="topbarCenter">
-            <button className="viewTab active" title="Visualização">◎ <span>Visualização</span></button>
+            <button className="viewTab active" title="Site/Preview">◎ <span>Site</span></button>
             <button className={panel === 'files' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('files')} title="Arquivos">▤</button>
             <button className={panel === 'code' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('code')} title="Código">&lt;/&gt;</button>
             <button className={panel === 'versions' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('versions')} title="Versões">▱</button>
             <button className={device === 'desktop' ? 'topIcon active' : 'topIcon'} onClick={() => setDevice('desktop')} title="Desktop">▱</button>
             <button className={device === 'tablet' ? 'topIcon active' : 'topIcon'} onClick={() => setDevice('tablet')} title="Tablet">▯</button>
             <button className={device === 'mobile' ? 'topIcon active' : 'topIcon'} onClick={() => setDevice('mobile')} title="Mobile">▯</button>
-            <button className="topIcon" onClick={() => setRefreshKey((v) => v + 1)} title="Atualizar">↻</button>
+            <button className="topIcon" onClick={() => setRefreshKey((v) => v + 1)} title="Recarregar preview">↻</button>
             <button className="topIcon qaButton" onClick={checkHealth} disabled={checkingHealth} title="QA do projeto">
               {checkingHealth ? '…' : healthScore !== null ? 'QA ' + healthScore : 'QA'}
             </button>
-            <button className="pageSelectBtn" type="button">Página inicial <span>⌄</span></button>
+            {previewPages.length > 0 ? (
+              <select className="pageSelectBtn" value={previewEntry} onChange={(event) => { setPreviewEntry(event.target.value); setRefreshKey((v)=>v+1) }} title="Página do preview">
+                {previewPages.map((page)=><option key={page} value={page}>{page === 'index.html' ? 'Página inicial' : page}</option>)}
+              </select>
+            ) : <button className="pageSelectBtn" type="button" disabled>Página inicial</button>}
           </div>
 
           <div className="topbarRight">
