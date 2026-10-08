@@ -31,6 +31,7 @@ export default async function WorkspacePage() {
           <a className="active">Projetos</a>
           <a>Templates <em>em breve</em></a>
           <a href="/integrations">Integrações</a>
+          <a href="/billing">Plano e cobrança</a>
         </nav>
         <form action={logout} className="projectsLogout"><button>Sair</button></form>
       </aside>
