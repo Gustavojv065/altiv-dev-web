@@ -103,9 +103,8 @@ export function analyzeRequestAlignment(
   check('video-request', !wantsVideo || videoCount > 0 || successfulVideoJob,
     'O pedido solicitou vídeo, mas nenhum vídeo real foi inserido ou retornado pelo motor de mídia.', 18)
 
-  const blankHeroPattern=/<(?:section|div)[^>]*(?:class|id)=["'][^"']*hero[^"']*["'][^>]*>[\s\S]{0,800}?<\/\1>/i
   const looksVerySparse = html.length < 8000 || (imageCount === 0 && countMatches(lower,/<section\b/gi) < 5)
-  check('content-density', !looksVerySparse && !blankHeroPattern.test(lower),
+  check('content-density', !looksVerySparse,
     'A página está simples ou vazia demais para o nível premium solicitado.', 12)
 
   return { score:Math.max(0,Math.min(100,100-penalty)), issues, checks }
