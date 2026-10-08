@@ -613,3 +613,66 @@
   border-radius:9px;padding:9px 11px;font-size:10px;font-weight:800;cursor:pointer
 }
 .engineModeButton:disabled,.modelPicker .primaryAction:disabled{opacity:.5;cursor:not-allowed}
+
+
+/* ===== Studio connections sidebar ===== */
+.studioConnections{overflow:auto;padding-bottom:28px}
+.studioConnectionNotice{
+  margin:0 0 10px;padding:9px 10px;border:1px solid #2e4a3a;background:#101b16;
+  color:#9fe5b8;border-radius:9px;font-size:9px;line-height:1.45
+}
+.studioConnectionCard,.routingCard,.studioProviderCard{
+  border:1px solid #252c36;background:#11151a;border-radius:11px;margin-bottom:9px
+}
+.studioConnectionCard{padding:11px}
+.connectionTitle,.routingCard{
+  display:flex;align-items:center;justify-content:space-between;gap:8px
+}
+.connectionTitle strong,.routingCard strong,.studioProviderCard strong{font-size:10px;color:#e7ebf1}
+.studioConnectionCard input,.studioProviderCard input{
+  width:100%;margin-top:9px;background:#090c10;border:1px solid #2b333e;border-radius:8px;
+  color:#fff;padding:8px 9px;font-size:9px;outline:0
+}
+.connectionActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.connectionActions button,.compactModelPicker button,.routingCard button{
+  border:1px solid #303846;background:#171c23;color:#cdd5df;border-radius:7px;
+  padding:7px 8px;font-size:8px;font-weight:700;cursor:pointer
+}
+.connectionActions .primaryAction,.compactModelPicker .primaryAction{
+  background:#f4f6f8;color:#0d1117;border-color:#f4f6f8
+}
+.connectionActions button:disabled,.compactModelPicker button:disabled,.routingCard button:disabled{opacity:.45;cursor:not-allowed}
+.miniStatus{
+  font-size:7px;padding:4px 6px;border-radius:999px;border:1px solid #39414c;color:#7f8998;
+  letter-spacing:.5px;font-weight:800
+}
+.miniStatus.on{border-color:#27573a;background:#102018;color:#77dea0}
+.studioRepoList,.studioProviderList{display:grid;gap:7px}
+.studioRepoRow{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;
+  border:1px solid #242c36;background:#101419;color:#dce2ea;border-radius:9px;padding:9px;cursor:pointer
+}
+.studioRepoRow strong,.studioRepoRow small{display:block}.studioRepoRow strong{font-size:9px}.studioRepoRow small{font-size:7px;color:#768294;margin-top:3px}
+.studioRepoRow>span{font-size:8px;color:#9eabbc;white-space:nowrap}
+.routingCard{padding:10px;margin-bottom:10px}
+.routingCard>div strong,.routingCard>div small{display:block}.routingCard>div small{font-size:7px;color:#788394;margin-top:3px}
+.routingCard button.active{background:#243d31;border-color:#335e48;color:#9be2b7}
+.studioProviderCard{padding:0;overflow:hidden}
+.studioProviderCard summary{
+  list-style:none;cursor:pointer;padding:9px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px
+}
+.studioProviderCard summary::-webkit-details-marker{display:none}
+.studioProviderCard summary div strong,.studioProviderCard summary div small{display:block}
+.studioProviderCard summary div small{font-size:7px;color:#747f8f;margin-top:2px}
+.studioProviderCard[open]{padding-bottom:9px}.studioProviderCard[open] input,.studioProviderCard[open] .connectionActions,.studioProviderCard[open] .compactModelPicker{margin-left:9px;margin-right:9px;width:calc(100% - 18px)}
+.compactModelPicker{display:grid;gap:6px;margin-top:8px}
+.compactModelPicker select{
+  width:100%;background:#090c10;border:1px solid #2b333e;border-radius:8px;
+  color:#dfe6ee;padding:7px 8px;font-size:8px
+}
+.studioManageLink{
+  display:block;margin-top:11px;text-align:center;color:#93a5c1;text-decoration:none;
+  border:1px dashed #303946;border-radius:8px;padding:8px;font-size:8px
+}
+.studioManageLink:hover{color:#fff;border-color:#4a5667}
+.railNav button span{white-space:nowrap}
