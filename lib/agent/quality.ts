@@ -82,7 +82,7 @@ export function analyzeRequestAlignment(
   const wantsVideo=/(vídeo|video|reel|clipe)/i.test(promptLower)
 
   const imageCount=countMatches(lower,/<img\b/gi) + countMatches(lower,/background-image\s*:/gi)
-  const videoCount=countMatches(lower,/<video\b/gi) + countMatches(lower,/<iframe[^>]+(?:youtube|vimeo)/gi)
+  const videoCount=countMatches(lower,/<video[^>]+src=["'][^"']+["']/gi) + countMatches(lower,/<source[^>]+src=["'][^"']+["']/gi) + countMatches(lower,/<iframe[^>]+(?:youtube|vimeo)/gi)
   const hasHero=/(class=["'][^"']*hero|id=["']hero|<section[^>]*>[^<]*(?:<[^>]+>)*[^<]*(?:agendar|explorar|saiba mais))/i.test(lower)
   const heroVisual=/(hero[\s\S]{0,5000}(<img\b|<video\b|background-image\s*:))/i.test(lower)
   const ctaCount=countMatches(lower,/(agendar|reservar|whatsapp|explorar serviços|explorar servicos|fale conosco|entrar em contato)/gi)
