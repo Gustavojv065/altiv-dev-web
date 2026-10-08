@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { classifyTask, PIPELINE } from '@/lib/agent/pipeline'
 import { analyzeHtmlQuality } from '@/lib/agent/quality'
 import { buildSkillInstructions, selectAltivSkills } from '@/lib/agent/skills'
+import { orchestrateRequest, orchestrationInstructions } from '@/lib/agent/orchestrator'
+import { generateMedia } from '@/lib/media/worker'
 import { createClient } from '@/lib/supabase/server'
 import { providerRoutesFor } from '@/lib/ai/provider-catalog'
 import { callWithFallback } from '@/lib/ai/direct-provider'
@@ -653,9 +655,46 @@ export async function POST(req: NextRequest) {
       .join('\n')
       .slice(0, 5000)
 
-    const activeSkills = selectAltivSkills(prompt)
+    const currentProjectFiles = currentFile ? [{
+      path:'index.html',
+      content:String(currentFile.content ?? ''),
+      revision:Number(currentFile.revision ?? 0),
+      language:'html',
+    }] : []
+    const orchestration = orchestrateRequest(prompt, currentProjectFiles)
+    const activeSkills = selectAltivSkills(prompt, 10)
     const skillInstructions = buildSkillInstructions(prompt)
-    const enrichedPrompt = prompt + (skillInstructions ? '\n\nSKILLS ATIVAS:\n' + skillInstructions : '')
+
+    const mediaJobs:Array<{kind:string;status?:string;jobId?:string;outputUrl?:string}> = []
+    if (orchestration.needsMedia && (process.env.ALTIV_MEDIA_WORKER_URL || process.env.COMFYUI_BASE_URL)) {
+      for (const kind of orchestration.mediaKinds) {
+        if (kind !== 'image' && kind !== 'video') continue
+        try {
+          const media = await generateMedia({
+            kind,
+            prompt,
+            projectId,
+            width:kind === 'image' ? 1536 : 1280,
+            height:kind === 'image' ? 1024 : 720,
+            durationSeconds:kind === 'video' ? 5 : undefined,
+          })
+          mediaJobs.push({ kind, status:media.status, jobId:media.jobId, outputUrl:media.outputUrl })
+        } catch {
+          mediaJobs.push({ kind, status:'failed' })
+        }
+      }
+    }
+
+    const mediaContext = mediaJobs.length
+      ? '\n\nASSETS DE MÍDIA GERADOS/ENFILEIRADOS:\n' + mediaJobs.map((job)=>'- ' + job.kind + ': ' + (job.outputUrl || job.status || 'pendente')).join('\n')
+      : orchestration.needsMedia
+        ? '\n\nMÍDIA: o pedido requer ' + orchestration.mediaKinds.join(', ') + '. Não invente URLs. Se o worker não fornecer um asset agora, crie o layout preparado para receber o asset depois.'
+        : ''
+
+    const enrichedPrompt = prompt +
+      '\n\n' + orchestrationInstructions(orchestration) +
+      (skillInstructions ? '\n\nSKILLS ATIVAS:\n' + skillInstructions : '') +
+      mediaContext
     const spec = await generateSiteSpec(enrichedPrompt, currentSpecRow?.spec, memoryText)
 
     await supabase
@@ -759,6 +798,8 @@ export async function POST(req: NextRequest) {
         quality_score: quality.score,
         quality_issues: quality.issues,
         skills: activeSkills.map((skill) => skill.id),
+        orchestration,
+        media_jobs: mediaJobs,
         site_spec: spec,
       },
     })
@@ -858,6 +899,8 @@ export async function POST(req: NextRequest) {
       qualityScore: quality.score,
       qualityIssues: quality.issues,
       activeSkills: activeSkills.map((skill) => ({ id: skill.id, label: skill.label })),
+      orchestration,
+      mediaJobs,
       siteSpec: spec,
       persisted: true,
       realGeneration: true,
