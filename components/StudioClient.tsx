@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { previewEntries, renderStaticSite } from '@/lib/project/render'
+import { detectProjectRuntime } from '@/lib/project/runtime'
 
 type AgentResponse = {
   ok: boolean
@@ -88,6 +89,7 @@ export default function StudioClient({
   const [checkingHealth, setCheckingHealth] = useState(false)
   const [previewEntry, setPreviewEntry] = useState('index.html')
   const previewPages = useMemo(() => previewEntries(files), [files])
+  const runtime = useMemo(() => detectProjectRuntime(files), [files])
   const renderedHtml = useMemo(() => renderStaticSite(files, previewEntry), [files, previewEntry])
   const feedRef = useRef<HTMLDivElement>(null)
 
@@ -587,7 +589,7 @@ export default function StudioClient({
         <header className="previewToolbar lovableTopbar">
           <div className="topbarLeft">
             <button className="topIcon" onClick={() => setPanel('chat')} title="Construir">☰</button>
-            <span className="topProject">{projectName}</span>
+            <span className="topProject">{projectName}</span><span className="runtimeBadge" title={runtime.reason}>{runtime.label}</span>
           </div>
 
           <div className="topbarCenter">
@@ -623,7 +625,7 @@ export default function StudioClient({
 
         <div className={'previewStage fill-' + device}>
           <div className={deviceClass}>
-            {previewHtml ? (
+            {previewHtml || renderedHtml ? (
               <iframe
                 key={refreshKey}
                 title="ALTIV Preview"
@@ -639,7 +641,7 @@ export default function StudioClient({
                 <div className="emptyBody">
                   <span>✦</span>
                   <h2>Seu site vai aparecer aqui</h2>
-                  <p>Use o chat à esquerda para criar a primeira versão.</p>
+                  <p>{runtime.previewMode === 'runtime' ? runtime.reason + ' O ALTIV já detectou a stack; o próximo estágio é executar esse projeto em sandbox de preview.' : 'Use o chat à esquerda para criar a primeira versão.'}</p>
                 </div>
               </div>
             )}
