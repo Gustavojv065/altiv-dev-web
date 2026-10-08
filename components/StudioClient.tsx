@@ -15,6 +15,9 @@ type AgentResponse = {
   versionNumber?: number
   qualityScore?: number
   qualityIssues?: string[]
+  nicheAlignmentScore?: number
+  niche?: { id:string; label:string }
+  mediaJobs?: Array<{kind:string;status?:string;outputUrl?:string}>
   activeSkills?: Array<{ id: string; label: string }>
   changedFiles?: string[]
   filePlan?: { mode: 'targeted' | 'full'; targets: string[]; reason: string }
@@ -554,9 +557,19 @@ export default function StudioClient({
                   {result?.qualityScore !== undefined && result.ok && (
                     <article className="messageBubble quality">
                       <div className="messageMeta"><span>Quality Gate</span><span>{result.qualityScore}/100</span></div>
-                      <p>{result.qualityScore >= 84 ? 'Aprovado pelo QA automático do ALTIV.' : 'Resultado salvo com pontos de melhoria identificados.'}</p>
+                      <p>
+                        {result.qualityScore >= 88 ? 'Aprovado pelo QA automático do ALTIV.' : 'Resultado salvo com pontos de melhoria identificados.'}
+                        {result.nicheAlignmentScore !== undefined ? ' Aderência ao nicho: ' + result.nicheAlignmentScore + '/100.' : ''}
+                        {result.niche?.label ? ' Nicho: ' + result.niche.label + '.' : ''}
+                      </p>
                     </article>
                   )}
+                  {result?.mediaJobs?.length ? (
+                    <article className="messageBubble assistant">
+                      <div className="messageMeta"><span>Media Agent</span></div>
+                      <p>{result.mediaJobs.map((job)=>job.kind + ': ' + (job.outputUrl ? 'pronto' : job.status || 'pendente')).join(' · ')}</p>
+                    </article>
+                  ) : null}
                   {result?.error && (
                     <article className="messageBubble error">
                       <div className="messageMeta"><span>Erro</span></div>
