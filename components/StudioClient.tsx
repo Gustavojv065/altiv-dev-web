@@ -352,6 +352,8 @@ export default function StudioClient({
 
   async function pushToGitHub() {
     if (pushingGitHub) return
+    const confirmed = window.confirm('Confirmar envio? O ALTIV vai criar uma branch, commit e Pull Request no GitHub. A main não será alterada diretamente.')
+    if (!confirmed) return
     setPushingGitHub(true)
     setResult(null)
     try {
@@ -610,7 +612,7 @@ export default function StudioClient({
           <div className="topbarRight">
             <button className="topIcon" onClick={openPreview} disabled={!previewHtml} title="Abrir preview em nova aba">↗</button>
             {publishedUrl && <a className="topIcon publishedLink" href={publishedUrl} target="_blank" rel="noreferrer" title="Abrir site publicado">●</a>}
-            <button className="topIcon qaButton" onClick={pushToGitHub} disabled={pushingGitHub} title="Criar branch e PR no GitHub">
+            <button className="topIcon qaButton" onClick={pushToGitHub} disabled={pushingGitHub} title="Revisar e criar branch/commit/PR no GitHub">
               {pushingGitHub ? '…' : 'Git'}
             </button>
             <button className="publishBtn" onClick={publishProject} disabled={publishing || !previewHtml}>
