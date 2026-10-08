@@ -7,6 +7,7 @@ export type SkillCategory =
   | 'quality'
   | 'agent'
   | 'deploy'
+  | 'media'
 
 export type AltivSkill = {
   id: string
@@ -132,6 +133,38 @@ export const ALTIV_SKILLS: AltivSkill[] = [
     priority: 76,
     keywords: /vercel|deploy|publicar|produção|preview|domínio|hosting/i,
     guidance: 'Valide build, variáveis de ambiente e framework antes do deploy. Não exponha secrets e mantenha preview separado de produção quando possível.',
+  },
+  {
+    id: 'visual-verification',
+    label: 'Verificação visual',
+    category: 'quality',
+    priority: 94,
+    keywords: /cor|paleta|tema|visual|design|layout|fonte|tipografia|claro|escuro|imagem|foto|vídeo|video|responsiv/i,
+    guidance: 'Depois de editar, confirme que o pedido visual apareceu de verdade no resultado. Compare arquivos, preview, contraste, paleta e responsividade; não aceite conclusão sem mudança verificável.',
+  },
+  {
+    id: 'media-director',
+    label: 'Direção de mídia',
+    category: 'media',
+    priority: 86,
+    keywords: /imagem|foto|fotografia|vídeo|video|banner|hero|logo|áudio|audio|música|musica|3d/i,
+    guidance: 'Planeje assets coerentes com a marca e o layout. Gere somente quando necessário, reutilize assets existentes e nunca invente URLs. Após geração, salve no projeto, injete no código e valide carregamento no preview.',
+  },
+  {
+    id: 'browser-preview',
+    label: 'Preview e runtime web',
+    category: 'web',
+    priority: 88,
+    keywords: /preview|visualização|visualizacao|navegador|browser|rota|página|pagina|site|react|next|vite|vue|svelte|astro/i,
+    guidance: 'Detecte a stack e a rota de entrada antes de renderizar. Preserve a rota selecionada, recarregue o preview após mudanças e diferencie HTML estático de projetos que exigem runtime/build.',
+  },
+  {
+    id: 'workspace-snapshots',
+    label: 'Workspace reversível',
+    category: 'core',
+    priority: 84,
+    keywords: /importar|clonar|github|alterar|editar|snapshot|versão|versao|desfazer|restaurar/i,
+    guidance: 'Trabalhe em cópia de projeto com snapshots antes de mudanças amplas. Mantenha alterações locais até aprovação; só então prepare branch, commit, push e PR.',
   },
   {
     id: 'pwa',
