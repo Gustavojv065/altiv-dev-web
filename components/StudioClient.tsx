@@ -81,6 +81,7 @@ export default function StudioClient({
   const [selectedPath, setSelectedPath] = useState('index.html')
   const [savingCode, setSavingCode] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [pushingGitHub, setPushingGitHub] = useState(false)
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null)
   const [healthScore, setHealthScore] = useState<number | null>(null)
   const [checkingHealth, setCheckingHealth] = useState(false)
@@ -346,6 +347,38 @@ export default function StudioClient({
     }
   }
 
+  async function pushToGitHub() {
+    if (pushingGitHub) return
+    setPushingGitHub(true)
+    setResult(null)
+    try {
+      const response = await fetch('/api/projects/' + projectId + '/github/push', {
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({ message:'Atualização do projeto ' + projectName }),
+      })
+      const data = await response.json()
+      if (!response.ok || !data?.ok) {
+        setResult({ok:false,error:data?.error ?? 'Não foi possível criar o PR no GitHub.'})
+        return
+      }
+
+      const prUrl = data.pullRequest?.html_url as string | undefined
+      setMessages((current) => [...current,{
+        id:'github-' + Date.now(),
+        role:'assistant',
+        content:'Alterações enviadas para a branch ' + data.branch + (prUrl ? ' e PR criado no GitHub.' : '.'),
+        model:null,
+        created_at:new Date().toISOString(),
+      }])
+      if (prUrl) window.open(prUrl,'_blank','noopener,noreferrer')
+    } catch (error) {
+      setResult({ok:false,error:error instanceof Error ? error.message : 'Falha ao enviar para GitHub.'})
+    } finally {
+      setPushingGitHub(false)
+    }
+  }
+
   async function publishProject() {
     if (publishing || !previewHtml) return
     setPublishing(true)
@@ -563,6 +596,9 @@ export default function StudioClient({
           <div className="topbarRight">
             <button className="topIcon" onClick={openPreview} disabled={!previewHtml} title="Abrir preview em nova aba">↗</button>
             {publishedUrl && <a className="topIcon publishedLink" href={publishedUrl} target="_blank" rel="noreferrer" title="Abrir site publicado">●</a>}
+            <button className="topIcon qaButton" onClick={pushToGitHub} disabled={pushingGitHub} title="Criar branch e PR no GitHub">
+              {pushingGitHub ? '…' : 'Git'}
+            </button>
             <button className="publishBtn" onClick={publishProject} disabled={publishing || !previewHtml}>
               {publishing ? 'Publicando…' : 'Publicar'}
             </button>

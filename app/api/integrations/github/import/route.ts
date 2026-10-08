@@ -61,6 +61,7 @@ export async function POST(req:NextRequest) {
       name: repo.name,
       status: 'draft',
       github_repo: repo.full_name,
+      github_branch: ref,
     }).select('id').single()
     if (projectInsert.error || !projectInsert.data) throw projectInsert.error || new Error('Falha ao criar projeto.')
     const projectId = projectInsert.data.id
