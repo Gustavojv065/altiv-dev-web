@@ -3,14 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { analyzeHtmlQuality } from '@/lib/agent/quality'
 import { planFileTargets, type ProjectFileInfo } from '@/lib/agent/file-intelligence'
 import { selectAltivSkills, buildSkillInstructions } from '@/lib/agent/skills'
+import { orchestrateRequest, orchestrationInstructions } from '@/lib/agent/orchestrator'
 import { renderStaticSite } from '@/lib/project/render'
 
-type EditablePath = 'index.html' | 'styles.css' | 'script.js'
-type EditFile = { path: EditablePath; content: string }
+type EditFile = { path: string; content: string }
 type EditResult = { summary: string; files: EditFile[] }
 
-function parseEditResult(text: string, targets: EditablePath[]): EditResult {
-  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+function parseEditResult(text: string, targets: string[]): EditResult {
+  const cleaned = text.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/i, '')
   const start = cleaned.indexOf('{')
   const end = cleaned.lastIndexOf('}')
   if (start < 0 || end < start) throw new Error('Resposta JSON inválida.')
@@ -25,22 +25,18 @@ function parseEditResult(text: string, targets: EditablePath[]): EditResult {
   for (const item of rawFiles) {
     if (!item || typeof item !== 'object') continue
     const file = item as Record<string, unknown>
-    const path = file.path
+    const path = typeof file.path === 'string' ? file.path : ''
     const fileContent = file.content
-    if (
-      (path === 'index.html' || path === 'styles.css' || path === 'script.js') &&
-      targets.includes(path) &&
-      typeof fileContent === 'string'
-    ) {
+    if (targets.includes(path) && typeof fileContent === 'string') {
       files.push({ path, content: fileContent })
     }
   }
 
-  if (!files.length) throw new Error('A IA não retornou arquivos válidos.')
-  return { summary, files: files.slice(0, 3) }
+  if (!files.length) throw new Error('A IA não retornou arquivos válidos do plano de edição.')
+  return { summary, files: files.slice(0, 8) }
 }
 
-async function runNvidia(prompt: string, targets: EditablePath[]) {
+async function runNvidia(prompt: string, targets: string[]) {
   const apiKey = process.env.NVIDIA_API_KEY
   if (!apiKey) throw new Error('NVIDIA_API_KEY não configurada.')
 
@@ -65,9 +61,9 @@ async function runNvidia(prompt: string, targets: EditablePath[]) {
         body: JSON.stringify({
           model: model.id,
           messages: [{ role: 'user', content: prompt }],
-          temperature: 0.25,
+          temperature: 0.2,
           top_p: 0.9,
-          max_tokens: 9500,
+          max_tokens: 12000,
           stream: false,
           chat_template_kwargs: { enable_thinking: false, force_nonempty_content: true },
         }),
@@ -86,6 +82,28 @@ async function runNvidia(prompt: string, targets: EditablePath[]) {
   }
 
   throw new Error('Falha na edição: ' + errors.join(' | '))
+}
+
+function languageFor(path:string) {
+  const ext = path.split('.').pop()?.toLowerCase()
+  if (ext === 'css' || ext === 'scss' || ext === 'sass' || ext === 'less') return ext
+  if (ext === 'js' || ext === 'jsx') return 'javascript'
+  if (ext === 'ts' || ext === 'tsx') return 'typescript'
+  if (ext === 'vue') return 'vue'
+  if (ext === 'svelte') return 'svelte'
+  if (ext === 'astro') return 'astro'
+  return ext || 'text'
+}
+
+function meaningfulChange(before:string, after:string) {
+  if (before === after) return false
+  const longest = Math.max(before.length, after.length, 1)
+  const lengthDelta = Math.abs(after.length - before.length) / longest
+  if (lengthDelta > 0.01) return true
+  let changed = 0
+  const sample = Math.min(longest, 20000)
+  for (let i=0;i<sample;i+=1) if (before[i] !== after[i]) changed += 1
+  return changed / Math.max(sample,1) > 0.01
 }
 
 export async function POST(
@@ -120,8 +138,9 @@ export async function POST(
   }))
 
   const plan = planFileTargets(userPrompt, files)
-  if (plan.mode === 'full') {
-    return NextResponse.json({ ok: false, fallback: true, plan }, { status: 409 })
+  const orchestration = orchestrateRequest(userPrompt, files)
+  if (plan.mode === 'full' || !plan.targets.length) {
+    return NextResponse.json({ ok: false, fallback: true, plan, orchestration }, { status: 409 })
   }
 
   const targets = plan.targets
@@ -135,27 +154,35 @@ export async function POST(
   }
 
   try {
-    const context = files
-      .filter((file) => targets.includes(file.path as EditablePath))
+    const targetFiles = files.filter((file) => targets.includes(file.path))
+    const context = targetFiles
       .map((file) => 'ARQUIVO ' + file.path + '\n' + file.content.slice(0, 50000))
       .join('\n\n')
 
     const skills = buildSkillInstructions(userPrompt)
-    const aiPrompt = `Você é o editor cirúrgico do ALTIV DEV.
+    const aiPrompt = `Você é o editor inteligente do ALTIV DEV. Trabalhe como um time coordenado, não como um gerador de texto solto.
 
-Edite somente: ${targets.join(', ')}.
+${orchestrationInstructions(orchestration)}
+
+Edite SOMENTE estes arquivos reais do repositório:
+${targets.map((item)=>'- ' + item).join('\n')}
+
 Retorne somente JSON válido no formato:
-{"summary":"resumo","files":[{"path":"styles.css","content":"arquivo completo"}]}
+{"summary":"resumo objetivo","files":[{"path":"caminho/exato/do/arquivo","content":"arquivo completo"}]}
 
-Regras:
+REGRAS OBRIGATÓRIAS:
 - Preserve tudo fora do pedido.
 - Retorne o conteúdo COMPLETO de cada arquivo alterado.
-- Não invente dados comerciais.
-- Mantenha responsividade, acessibilidade e SEO.
-- JavaScript deve funcionar em iframe sandbox.
+- Use exatamente os caminhos fornecidos.
+- Não invente dados comerciais, rotas ou APIs.
+- Para mudança de tema/paleta, procure também estilos inline e tokens dentro de componentes, não apenas CSS externo.
+- Se o usuário pediu cores específicas, aplique-as de forma visível e coerente em fundo, texto, bordas e CTAs.
+- Mantenha responsividade, acessibilidade, SEO e funcionalidades.
+- Não declare conclusão sem produzir uma alteração verificável.
 - Não use eval nem document.write.
+- Se o pedido exigir mídia nova, não invente URL de imagem/vídeo. Preserve espaço semântico para asset e deixe o Media Agent como dependência explícita no resumo.
 
-SKILLS:
+SKILLS ATIVADAS:
 ${skills || 'Edição segura'}
 
 PEDIDO:
@@ -165,15 +192,30 @@ ARQUIVOS:
 ${context}`
 
     const generated = await runNvidia(aiPrompt, targets)
-    const now = new Date().toISOString()
     const currentByPath = new Map(files.map((file) => [file.path, file]))
+    const changed = generated.result.files.filter((file) => {
+      const before = currentByPath.get(file.path)?.content ?? ''
+      return meaningfulChange(before, file.content)
+    })
 
-    const rows = generated.result.files.map((file) => ({
+    if (!changed.length) {
+      throw new Error('A IA respondeu, mas não produziu uma alteração verificável. O ALTIV cancelou a falsa conclusão.')
+    }
+
+    if (orchestration.requiresVisualVerification) {
+      const visualChanged = changed.some((file)=>/\.(css|scss|sass|less|html|jsx|tsx|vue|svelte|astro)$/i.test(file.path))
+      if (!visualChanged) {
+        throw new Error('O pedido era visual, mas nenhum arquivo visual foi alterado. Tente novamente com o agente completo.')
+      }
+    }
+
+    const now = new Date().toISOString()
+    const rows = changed.map((file) => ({
       owner_id: ownerId,
       project_id: id,
       path: file.path,
       content: file.content,
-      language: file.path.endsWith('.css') ? 'css' : file.path.endsWith('.js') ? 'javascript' : 'html',
+      language: languageFor(file.path),
       revision: (currentByPath.get(file.path)?.revision ?? 0) + 1,
       updated_at: now,
     }))
@@ -212,10 +254,11 @@ ${context}`
       source_type: 'snapshot',
       summary,
       metadata: {
-        source: 'surgical-agent',
+        source: 'orchestrated-surgical-agent',
         model: generated.model,
         files: changedFiles,
         file_plan: plan,
+        orchestration,
         quality_score: quality.score,
       },
     })
@@ -235,17 +278,18 @@ ${context}`
     await supabase.from('projects').update({ status: 'ready', updated_at: now })
       .eq('id', id).eq('owner_id', ownerId)
 
-    const htmlFile = savedFiles.find((file) => file.path === 'index.html')
+    const previewRevision = Math.max(0, ...savedFiles.map((file)=>file.revision))
     return NextResponse.json({
       ok: true,
       model: generated.model,
       summary,
       html: rendered,
-      revision: htmlFile?.revision ?? 0,
+      revision: previewRevision,
       versionNumber,
       qualityScore: quality.score,
       qualityIssues: quality.issues,
-      activeSkills: selectAltivSkills(userPrompt).map((skill) => ({ id: skill.id, label: skill.label })),
+      activeSkills: selectAltivSkills(userPrompt, 10).map((skill) => ({ id: skill.id, label: skill.label })),
+      orchestration,
       changedFiles,
       filePlan: plan,
       files: savedFiles,
@@ -253,7 +297,7 @@ ${context}`
   } catch (error) {
     return NextResponse.json({
       ok: false,
-      error: error instanceof Error ? error.message : 'Falha na edição cirúrgica.',
+      error: error instanceof Error ? error.message : 'Falha na edição inteligente.',
     }, { status: 500 })
   } finally {
     await supabase.rpc('release_project_agent_lock', {
