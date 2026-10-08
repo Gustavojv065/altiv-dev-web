@@ -95,6 +95,31 @@ export async function POST(req:NextRequest) {
     if (rows.length) {
       const write = await supabase.from('project_files').upsert(rows, { onConflict:'project_id,path' })
       if (write.error) throw write.error
+
+      const versionNumber = 1
+      const version = await supabase.from('project_versions').insert({
+        owner_id:ownerId,
+        project_id:projectId,
+        version_number:versionNumber,
+        source_type:'snapshot',
+        summary:'Importação inicial de ' + repo.full_name,
+        metadata:{ source:'github-import', repository:repo.full_name, branch:ref, imported_files:rows.length },
+      })
+      if (version.error) throw version.error
+
+      const snapshot = await supabase.from('project_version_files').insert(
+        rows.map((file) => ({
+          owner_id:ownerId,
+          project_id:projectId,
+          version_number:versionNumber,
+          path:file.path,
+          content:file.content,
+        }))
+      )
+      if (snapshot.error) throw snapshot.error
+
+      await supabase.from('projects').update({ status:'ready', updated_at:new Date().toISOString() })
+        .eq('id',projectId).eq('owner_id',ownerId)
     }
 
     await recordUsage({ ownerId, type:'github_import', metadata:{ projectId, repository:repo.full_name, importedFiles:rows.length } })
