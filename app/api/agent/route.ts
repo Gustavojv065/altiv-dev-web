@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { classifyTask, PIPELINE } from '@/lib/agent/pipeline'
-import { analyzeHtmlQuality } from '@/lib/agent/quality'
+import { analyzeHtmlQuality, analyzeRequestAlignment } from '@/lib/agent/quality'
 import { buildSkillInstructions, selectAltivSkills } from '@/lib/agent/skills'
 import { orchestrateRequest, orchestrationInstructions } from '@/lib/agent/orchestrator'
 import { generateMedia } from '@/lib/media/worker'
@@ -247,6 +247,10 @@ PADRÃO VISUAL OBRIGATÓRIO
 - Em marcas preto+dourado, prefira hero/header escuros, conteúdo principal claro e dourado como acento.
 - Use CSS custom properties para cores, raios, spacing e tipografia.
 - Se não houver imagens confiáveis, produza composição premium com SVG inline, shapes e textura CSS em vez de URLs inventadas.
+- Se o pedido tiver um nicho específico, trate o nicho como restrição semântica: não misture serviços, imagens ou linguagem de outro setor.
+- Para barbearia masculina, não use manicure, unhas, maquiagem, cílios, salão feminino ou imagens de cosméticos femininos.
+- Hero premium precisa ter presença visual real: imagem, vídeo ou composição editorial relevante; evite topo grande e vazio.
+- Se o usuário pedir vídeo e nenhum motor de mídia fornecer um URL real, não finja que existe vídeo; deixe o bloco preparado e torne a limitação explícita no resultado.
 
 QUALIDADE TÉCNICA
 - Inclua meta description.
@@ -743,15 +747,24 @@ export async function POST(req: NextRequest) {
 
     let finalHtml = generated.output.html
     let quality = analyzeHtmlQuality(finalHtml)
+    let alignment = analyzeRequestAlignment(finalHtml, prompt, orchestration.niche, mediaJobs)
+    let combinedScore = Math.round((quality.score * 0.55) + (alignment.score * 0.45))
 
     await markStep('validate', 'completed')
     await markStep('review', 'running')
 
-    if (quality.score < 84 && quality.issues.length) {
+    const reviewIssues = Array.from(new Set([
+      ...quality.issues,
+      ...alignment.issues,
+    ]))
+
+    if ((combinedScore < 88 || alignment.score < 86) && reviewIssues.length) {
       await markStep('review', 'completed')
       await markStep('repair', 'running')
-      finalHtml = await repairHtml(enrichedPrompt, finalHtml, quality.issues, spec)
+      finalHtml = await repairHtml(enrichedPrompt, finalHtml, reviewIssues, spec)
       quality = analyzeHtmlQuality(finalHtml)
+      alignment = analyzeRequestAlignment(finalHtml, prompt, orchestration.niche, mediaJobs)
+      combinedScore = Math.round((quality.score * 0.55) + (alignment.score * 0.45))
       await markStep('repair', 'completed')
     } else {
       await markStep('review', 'completed')
@@ -797,7 +810,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     const versionNumber = (lastVersion?.version_number ?? 0) + 1
-    const summary = `${generated.output.summary} Qualidade ALTIV: ${quality.score}/100.`
+    const summary = `${generated.output.summary} Qualidade ALTIV: ${combinedScore}/100 · aderência ao nicho: ${alignment.score}/100.`
 
     await supabase.from('project_versions').insert({
       owner_id: ownerId,
@@ -811,8 +824,10 @@ export async function POST(req: NextRequest) {
         model: generated.model,
         provider: generated.provider,
         run_id: runId,
-        quality_score: quality.score,
-        quality_issues: quality.issues,
+        quality_score: combinedScore,
+        technical_quality_score: quality.score,
+        niche_alignment_score: alignment.score,
+        quality_issues: Array.from(new Set([...quality.issues, ...alignment.issues])),
         skills: activeSkills.map((skill) => skill.id),
         orchestration,
         media_jobs: mediaJobs,
@@ -841,7 +856,7 @@ export async function POST(req: NextRequest) {
         path: 'index.html',
         revision,
         provider: generated.provider,
-        qualityScore: quality.score,
+        qualityScore: combinedScore,
       }],
     })
 
@@ -857,7 +872,8 @@ export async function POST(req: NextRequest) {
         run_id: runId,
         revision,
         provider: generated.provider,
-        quality_score: quality.score,
+        quality_score: combinedScore,
+        niche_alignment_score: alignment.score,
       },
     })
 
@@ -869,7 +885,7 @@ export async function POST(req: NextRequest) {
         runId,
         model:generated.model,
         provider:generated.provider,
-        qualityScore:quality.score,
+        qualityScore:combinedScore,
       },
     })
 
@@ -912,8 +928,10 @@ export async function POST(req: NextRequest) {
       html: finalHtml,
       revision,
       versionNumber,
-      qualityScore: quality.score,
-      qualityIssues: quality.issues,
+      qualityScore: combinedScore,
+      qualityIssues: Array.from(new Set([...quality.issues, ...alignment.issues])),
+      nicheAlignmentScore: alignment.score,
+      niche: orchestration.niche,
       activeSkills: activeSkills.map((skill) => ({ id: skill.id, label: skill.label })),
       orchestration,
       mediaJobs,
