@@ -42,6 +42,10 @@ type Version = {
 type Panel = 'chat' | 'files' | 'code' | 'versions' | 'github' | 'ai'
 type Device = 'desktop' | 'tablet' | 'mobile'
 type ProjectFile = { path: string; content: string; revision: number; language: string }
+type ServerRunState = {
+  active:boolean
+  run?: { id:string; status:string; prompt?:string; model?:string|null; error?:string|null; currentStep?:string|null } | null
+}
 
 function timeLabel(value: string) {
   try {
@@ -93,6 +97,8 @@ export default function StudioClient({
   const runtime = useMemo(() => detectProjectRuntime(files), [files])
   const renderedHtml = useMemo(() => renderStaticSite(files, previewEntry), [files, previewEntry])
   const feedRef = useRef<HTMLDivElement>(null)
+  const serverRunWasActive = useRef(false)
+  const [serverRun,setServerRun] = useState<ServerRunState>({active:false})
 
   const status = useMemo(() => {
     if (running) return 'Gerando alteração…'
@@ -132,33 +138,64 @@ export default function StudioClient({
   }
 
   useEffect(() => {
-    if (!running) return
-
     let stopped = false
-    const poll = async () => {
+
+    const syncPreview = async () => {
       try {
-        const response = await fetch('/api/projects/' + projectId + '/preview', { cache: 'no-store' })
+        const response = await fetch('/api/projects/' + projectId + '/preview', { cache:'no-store' })
         const data = await response.json()
-        if (!stopped && data?.ok && Number(data.revision ?? 0) > revision && data.html) {
+        if (stopped || !data?.ok) return
+        const nextRevision = Number(data.revision ?? 0)
+        if (data.html && (nextRevision > revision || !previewHtml)) {
           setPreviewHtml(data.html)
-          setRevision(Number(data.revision))
-          setRefreshKey((v) => v + 1)
+          setRevision(nextRevision)
+          setRefreshKey((v)=>v+1)
         }
       } catch {}
     }
 
-    poll()
-    const timer = window.setInterval(poll, 4000)
+    const pollRun = async () => {
+      try {
+        const response = await fetch('/api/projects/' + projectId + '/run-status', { cache:'no-store' })
+        const data = await response.json()
+        if (stopped || !data?.ok) return
+
+        const active = Boolean(data.active)
+        setServerRun({ active, run:data.run ?? null })
+
+        if (active) {
+          serverRunWasActive.current = true
+          setRunning(true)
+          await syncPreview()
+          return
+        }
+
+        if (serverRunWasActive.current) {
+          serverRunWasActive.current = false
+          setRunning(false)
+          await syncPreview()
+          const filesResponse = await fetch('/api/projects/' + projectId + '/files', { cache:'no-store' })
+          const filesData = await filesResponse.json()
+          if (!stopped && filesData?.ok && Array.isArray(filesData.files)) setFiles(filesData.files)
+          window.setTimeout(()=>window.location.reload(),350)
+        } else if (!running) {
+          await syncPreview()
+        }
+      } catch {}
+    }
+
+    pollRun()
+    const timer = window.setInterval(pollRun,3000)
     return () => {
       stopped = true
       window.clearInterval(timer)
     }
-  }, [running, projectId, revision])
+  }, [projectId, revision, previewHtml, running])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
     const value = prompt.trim()
-    if (!value || running) return
+    if (!value || running || serverRun.active) return
 
     const optimistic: ChatMessage = {
       id: 'local-' + Date.now(),
@@ -174,6 +211,7 @@ export default function StudioClient({
     setResult(null)
     setPanel('chat')
 
+    let followExistingRun = false
     try {
       let response = await fetch('/api/projects/' + projectId + '/targeted-edit', {
         method: 'POST',
@@ -189,6 +227,17 @@ export default function StudioClient({
           body: JSON.stringify({ prompt: value, projectId }),
         })
         data = await response.json()
+      }
+
+      if (response.status === 409 && (data as AgentResponse & {locked?:boolean}).locked) {
+        followExistingRun = true
+        serverRunWasActive.current = true
+        setServerRun({active:true})
+        setResult({
+          ok:true,
+          summary:'Já existe uma execução em andamento. O ALTIV está acompanhando o processo atual e atualizará o preview automaticamente quando terminar.',
+        })
+        return
       }
 
       setResult(data)
@@ -234,7 +283,7 @@ export default function StudioClient({
     } catch (error) {
       setResult({ ok: false, error: error instanceof Error ? error.message : 'Falha de rede.' })
     } finally {
-      setRunning(false)
+      setRunning(followExistingRun)
     }
   }
 
@@ -481,7 +530,7 @@ export default function StudioClient({
                   {running && (
                     <article className="messageBubble assistant working">
                       <div className="messageMeta"><span>ALTIV</span><span className="liveDot">gerando</span></div>
-                      <div className="workingLine"><i/><i/><i/> Gerando e salvando a próxima versão…</div>
+                      <div className="workingLine"><i/><i/><i/> {serverRun.run?.currentStep ? 'Etapa: ' + serverRun.run.currentStep + '…' : 'Gerando e salvando a próxima versão…'}</div>
                     </article>
                   )}
                   {result?.orchestration?.roles?.length ? (
@@ -647,8 +696,12 @@ export default function StudioClient({
                 </div>
                 <div className="emptyBody">
                   <span>✦</span>
-                  <h2>Seu site vai aparecer aqui</h2>
-                  <p>{runtime.previewMode === 'runtime' ? runtime.reason + ' O ALTIV já detectou a stack; o próximo estágio é executar esse projeto em sandbox de preview.' : 'Use o chat à esquerda para criar a primeira versão.'}</p>
+                  <h2>{running || serverRun.active ? 'ALTIV está construindo seu site' : 'Seu site vai aparecer aqui'}</h2>
+                  <p>{running || serverRun.active
+                    ? 'A geração continua no servidor mesmo se você atualizar ou minimizar a tela. O preview será sincronizado automaticamente quando a versão ficar pronta.'
+                    : runtime.previewMode === 'runtime'
+                      ? runtime.reason + ' O ALTIV detectou a stack e precisa de runtime isolado para um preview fiel.'
+                      : 'Use o chat à esquerda para criar a primeira versão.'}</p>
                 </div>
               </div>
             )}

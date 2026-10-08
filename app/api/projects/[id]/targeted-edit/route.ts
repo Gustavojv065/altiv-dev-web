@@ -150,7 +150,11 @@ export async function POST(
     p_ttl_seconds: 300,
   })
   if (!lockToken) {
-    return NextResponse.json({ ok: false, error: 'Já existe uma edição ativa neste projeto.' }, { status: 409 })
+    return NextResponse.json({
+      ok:false,
+      locked:true,
+      error:'Já existe uma edição ativa neste projeto. O ALTIV vai acompanhar a execução atual em vez de iniciar outra.',
+    }, { status:409 })
   }
 
   try {
