@@ -676,3 +676,21 @@
 }
 .studioManageLink:hover{color:#fff;border-color:#4a5667}
 .railNav button span{white-space:nowrap}
+
+/* ALTIV Google Studio workspace enhancement - additive, reversible */
+.altivGoogleStudio{grid-template-columns:58px minmax(320px,390px) minmax(0,1fr)}
+.altivGoogleStudio.altivMenuExpanded{grid-template-columns:172px minmax(320px,390px) minmax(0,1fr)}
+.altivGoogleStudio .studioRail{align-items:stretch;overflow-y:auto}
+.altivGoogleStudio .railNav button,.altivGoogleStudio .railNav a{width:100%;display:flex;flex-direction:row;justify-content:flex-start;align-items:center;gap:12px;padding:10px;text-decoration:none;color:#aab4c2}
+.altivGoogleStudio .railNav button small,.altivGoogleStudio .railNav a small{display:none}
+.altivGoogleStudio.altivMenuExpanded .railNav button small,.altivGoogleStudio.altivMenuExpanded .railNav a small{display:inline;font-size:12px}
+.altivMenuToggle{border:1px solid #29303b;border-radius:9px;background:#171b22;color:#d7dde7;padding:10px;cursor:pointer}
+.altivMenuToggle span{display:none;margin-left:7px}
+.altivMenuExpanded .altivMenuToggle span{display:inline}
+.altivGoogleStudio .studioPreview{min-width:0}
+.altivGoogleStudio .previewStage{padding:10px}
+.altivGoogleStudio .previewViewport.desktop{width:100%;height:100%;min-height:0;max-width:none;border-radius:4px}
+.altivTopLink{text-decoration:none;display:inline-flex;align-items:center}
+.altivMobileSwitch{display:none}
+@media(max-width:1100px){.altivGoogleStudio.altivMenuExpanded{grid-template-columns:58px minmax(300px,370px) minmax(0,1fr)}.altivGoogleStudio .railNav button small,.altivGoogleStudio .railNav a small,.altivMenuToggle span{display:none!important}}
+@media(max-width:760px){.altivGoogleStudio,.altivGoogleStudio.altivMenuExpanded{height:100dvh;min-height:0;grid-template-columns:1fr;grid-template-rows:54px minmax(0,1fr)}.altivGoogleStudio .studioRail{flex-direction:row;overflow-x:auto;overflow-y:hidden}.altivGoogleStudio .railNav{display:flex;flex-direction:row;width:auto;flex:1}.altivGoogleStudio .railNav button,.altivGoogleStudio .railNav a{width:auto;min-width:38px}.altivGoogleStudio .studioPanel{min-height:0;grid-row:2}.altivGoogleStudio .studioPreview{grid-row:2;min-height:0}.altivGoogleStudio.altivMobileView-chat .studioPreview{display:none}.altivGoogleStudio.altivMobileView-preview .studioPanel{display:none}.altivGoogleStudio .altivMobileSwitch{display:flex;gap:5px}.altivGoogleStudio .altivMobileSwitch button{background:#1b222c;color:#fff;border:1px solid #303946;border-radius:7px;padding:7px}.altivGoogleStudio .topbarCenter{overflow-x:auto}.altivGoogleStudio .previewStage{min-height:0}.altivGoogleStudio .previewViewport.desktop{height:100%;min-height:0}}
