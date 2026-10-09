@@ -76,6 +76,8 @@ export default function StudioClient({
   initialVersions: Version[]
 }) {
   const [prompt, setPrompt] = useState('')
+  const [menuExpanded, setMenuExpanded] = useState(true)
+  const [mobileView, setMobileView] = useState<'chat' | 'preview'>('chat')
   const [running, setRunning] = useState(false)
   const [device, setDevice] = useState<Device>('desktop')
   const [panel, setPanel] = useState<Panel>('chat')
@@ -390,10 +392,12 @@ export default function StudioClient({
       }
 
       setHealthScore(Number(data.quality?.score ?? 0))
+      const securityFindings = Array.isArray(data.security?.findings) ? data.security.findings : []
       setResult({
         ok: true,
         summary: 'QA do projeto: ' + Number(data.quality?.score ?? 0) + '/100. ' +
-          ((data.quality?.issues ?? []).slice(0, 3).join(' · ') || 'Nenhum problema importante encontrado.'),
+          ((data.quality?.issues ?? []).slice(0, 3).join(' · ') || 'Nenhum problema importante encontrado.') +
+          (securityFindings.length ? ' · Segurança: ' + securityFindings.length + ' alerta(s): ' + securityFindings.slice(0, 2).map((item: {rule:string;file:string}) => item.rule + ' em ' + item.file).join(', ') : ' · Segurança estática: sem alertas nas regras básicas.'),
         qualityScore: Number(data.quality?.score ?? 0),
         qualityIssues: data.quality?.issues ?? [],
       })
@@ -474,8 +478,10 @@ export default function StudioClient({
   const deviceClass = 'previewViewport ' + device
 
   return (
-    <main className="studioShell">
-      <aside className="studioRail">
+    <main className={`studioShell altivGoogleStudio ${menuExpanded ? "altivMenuExpanded" : ""} altivMobileView-${mobileView}`}>
+      <aside className="studioRail" aria-label="Menu principal do ALTIV DEV">
+        <button type="button" className="altivMenuToggle" onClick={() => setMenuExpanded(value => !value)} aria-expanded={menuExpanded} title="Expandir ou recolher menus">☰ <span>Menus</span></button>
+        <div className="altivMobileSwitcher"><button type="button" onClick={() => setMobileView("chat")} aria-pressed={mobileView === "chat"}>Chat</button><button type="button" onClick={() => setMobileView("preview")} aria-pressed={mobileView === "preview"}>Preview</button></div>
         <a className="railLogo" href="/workspace" title="ALTIV DEV">A</a>
         <div className="railNav">
           <button className={panel === 'chat' ? 'active' : ''} onClick={() => setPanel('chat')} title="Chat"><span>✦</span><small>Chat</small></button>
@@ -489,7 +495,7 @@ export default function StudioClient({
         <a className="railBack" href="/workspace" title="Projetos">←</a>
       </aside>
 
-      <section className="studioPanel">
+      <section className="studioPanel" id="altiv-chat-panel">
         <div className="studioProjectHead">
           <div className="projectIdentity">
             <span className="projectDot" />
@@ -654,14 +660,20 @@ export default function StudioClient({
         )}
       </section>
 
-      <section className="studioPreview">
+      <section className="studioPreview" id="altiv-preview-panel">
         <header className="previewToolbar lovableTopbar">
           <div className="topbarLeft">
+            <div className="altivMobileSwitch"><button type="button" onClick={() => setMobileView("chat")}>Chat</button><button type="button" onClick={() => setMobileView("preview")}>Preview</button></div>
             <button className="topIcon" onClick={() => setPanel('chat')} title="Construir">☰</button>
             <span className="topProject">{projectName}</span><span className="runtimeBadge" title={runtime.reason}>{runtime.label}</span>
           </div>
 
           <div className="topbarCenter">
+            <button className="topIcon" onClick={() => setPanel("chat")} title="Chat">Chat</button>
+            <button className="topIcon" onClick={() => setPanel("versions")} title="Versões">Versões</button>
+            <button className="topIcon" onClick={() => setPanel("github")} title="GitHub">GitHub</button>
+            <a className="topIcon altivTopLink" href="/integrations" title="Integrações">Integrações</a>
+            <button className="topIcon" onClick={() => setPanel("ai")} title="Configurações de IA">⚙</button>
             <button className="viewTab active" title="Site/Preview">◎ <span>Site</span></button>
             <button className={panel === 'files' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('files')} title="Arquivos">▤</button>
             <button className={panel === 'code' ? 'topIcon active' : 'topIcon'} onClick={() => setPanel('code')} title="Código">&lt;/&gt;</button>

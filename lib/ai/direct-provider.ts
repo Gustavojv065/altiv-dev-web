@@ -104,6 +104,20 @@ export async function callProvider(
 
   const key = providerEnvKey(route.provider)
   if (!key) throw new Error(def.label + ' não configurado.')
+  if (route.provider === 'freellmapi') {
+    const base = process.env.FREELLMAPI_BASE_URL
+    if (!base || !/^https:\/\/[^/?#]+(?:\/v1)?\/?$/i.test(base)) throw new Error('FreeLLMAPI requer URL HTTPS terminando em /v1.')
+    const response = await fetch(base.replace(/\/$/,'') + '/chat/completions', {
+      method:'POST', signal:AbortSignal.timeout(timeoutMs),
+      headers:{'content-type':'application/json',authorization:'Bearer ' + key},
+      body:JSON.stringify({model:route.model,messages,temperature,max_tokens:maxTokens,stream:false}),
+    })
+    if (!response.ok) throw new Error('FreeLLMAPI indisponível: HTTP ' + response.status)
+    const data = await response.json()
+    const text = String(data?.choices?.[0]?.message?.content ?? '').trim()
+    if (!text) throw new Error('FreeLLMAPI não retornou texto.')
+    return text
+  }
   if (!def.baseUrl || !def.chatPath) throw new Error(def.label + ' sem endpoint de chat configurado.')
 
   const headers:Record<string,string> = {

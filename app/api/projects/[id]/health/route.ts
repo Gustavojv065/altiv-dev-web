@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { analyzeHtmlQuality } from '@/lib/agent/quality'
+import { auditProjectSecurity } from '@/lib/agent/security-audit'
 
 export async function GET(
   _req: Request,
@@ -35,6 +36,7 @@ export async function GET(
     project,
     fileMap: (files ?? []).map(({ path, language, revision }) => ({ path, language, revision })),
     quality,
+    security: { findings: auditProjectSecurity(files ?? []), scannedFiles: (files ?? []).length },
     spec: spec?.spec ?? null,
   })
 }
