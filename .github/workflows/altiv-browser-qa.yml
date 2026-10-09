@@ -13,7 +13,8 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-package-lock --ignore-scripts
-      - run: npx --yes playwright@1.56.1 install --with-deps chromium
+      - run: npm install --no-save --no-package-lock playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
       - name: Build isolated preview
         run: npm run build
         env:
@@ -29,4 +30,4 @@ jobs:
           cat /tmp/altiv-next.log
           exit 1
       - name: Browser smoke test (local-only)
-        run: npx --yes -p playwright@1.56.1 node -e "const { chromium } = require('playwright'); (async () => { const browser = await chromium.launch({headless:true}); const page = await browser.newPage(); const response = await page.goto('http://127.0.0.1:3000/login'); if (!response || response.status() >= 500) throw Error('Login route unavailable'); await browser.close(); })().catch(error => { console.error(error); process.exit(1) })"
+        run: node -e "const { chromium } = require('playwright'); (async () => { const browser = await chromium.launch({headless:true}); const page = await browser.newPage(); const response = await page.goto('http://127.0.0.1:3000/login'); if (!response || response.status() >= 500) throw Error('Login route unavailable'); await browser.close(); })().catch(error => { console.error(error); process.exit(1) })"
