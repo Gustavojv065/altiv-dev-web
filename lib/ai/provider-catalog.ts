@@ -25,6 +25,7 @@ export type ProviderRoute = {
 const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
   code: [
     { provider:'openrouter', model:'openrouter/free', free:true, role:'free-code-router' },
+    { provider:'groq', model:'openai/gpt-oss-120b', free:true, role:'free-code-groq' },
     { provider:'opencode-zen', model:'nemotron-3-ultra-free', free:true, role:'zen-code-free' },
     { provider:'groq', model:'openai/gpt-oss-120b', free:true, role:'fast-code' },
     { provider:'cerebras', model:'gpt-oss-120b', free:true, role:'fast-code' },
@@ -53,6 +54,7 @@ const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
   ],
   plan: [
     { provider:'openrouter', model:'openrouter/free', free:true, role:'free-planning-router' },
+    { provider:'groq', model:'openai/gpt-oss-120b', free:true, role:'free-planning-groq' },
     { provider:'cerebras', model:'gpt-oss-120b', free:true, role:'fast-plan' },
     { provider:'deepseek', model:'deepseek-reasoner', role:'reasoning' },
     { provider:'anthropic', model:'claude-sonnet-4-5', role:'architecture' },
@@ -61,6 +63,7 @@ const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
   ],
   vision: [
     { provider:'openrouter', model:'openrouter/free', free:true, role:'free-vision-router' },
+    { provider:'gemini', model:process.env.GEMINI_FREE_MODEL || 'gemini-2.5-flash', free:true, role:'free-vision-gemini' },
     { provider:'gemini', model:process.env.GEMINI_VISION_MODEL || 'gemini-3.1-pro-preview', role:'vision' },
     { provider:'xai', model:'grok-4', role:'vision-alt' },
     { provider:'openai', model:process.env.OPENAI_CODE_MODEL || 'gpt-5.6-sol', role:'implementation' },
@@ -68,6 +71,7 @@ const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
   ],
   fast: [
     { provider:'openrouter', model:'openrouter/free', free:true, role:'free-fast-router' },
+    { provider:'groq', model:'openai/gpt-oss-120b', free:true, role:'free-fast-groq' },
     { provider:'opencode-zen', model:'ling-3.0-flash-fin-free', free:true, role:'zen-fast-free' },
     { provider:'groq', model:'llama-3.3-70b-versatile', free:true, role:'fast' },
     { provider:'cerebras', model:'llama3.1-8b', free:true, role:'fast' },
