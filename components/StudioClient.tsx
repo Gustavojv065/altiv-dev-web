@@ -481,6 +481,7 @@ export default function StudioClient({
     <main className={`studioShell altivGoogleStudio ${menuExpanded ? "altivMenuExpanded" : ""} altivMobileView-${mobileView}`}>
       <aside className="studioRail" aria-label="Menu principal do ALTIV DEV">
         <button type="button" className="altivMenuToggle" onClick={() => setMenuExpanded(value => !value)} aria-expanded={menuExpanded} title="Expandir ou recolher menus">☰ <span>Menus</span></button>
+        <div className="altivMobileSwitcher"><button type="button" onClick={() => setMobileView("chat")} aria-pressed={mobileView === "chat"}>Chat</button><button type="button" onClick={() => setMobileView("preview")} aria-pressed={mobileView === "preview"}>Preview</button></div>
         <a className="railLogo" href="/workspace" title="ALTIV DEV">A</a>
         <div className="railNav">
           <button className={panel === 'chat' ? 'active' : ''} onClick={() => setPanel('chat')} title="Chat"><span>✦</span><small>Chat</small></button>
