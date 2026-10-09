@@ -5,6 +5,8 @@ import { planFileTargets, type ProjectFileInfo } from '@/lib/agent/file-intellig
 import { selectAltivSkills, buildSkillInstructions } from '@/lib/agent/skills'
 import { orchestrateRequest, orchestrationInstructions } from '@/lib/agent/orchestrator'
 import { renderStaticSite } from '@/lib/project/render'
+import { buildProjectMemory } from '@/lib/agent/project-memory'
+import { auditProjectSecurity } from '@/lib/agent/security-audit'
 
 type EditFile = { path: string; content: string }
 type EditResult = { summary: string; files: EditFile[] }
@@ -163,6 +165,16 @@ export async function POST(
       .map((file) => 'ARQUIVO ' + file.path + '\n' + file.content.slice(0, 50000))
       .join('\n\n')
 
+    const { data: recentConversations } = await supabase.from('conversations')
+      .select('id').eq('project_id', id).eq('owner_id', ownerId)
+      .order('created_at', { ascending: false }).limit(1)
+    const conversationId = recentConversations?.[0]?.id
+    const { data: memoryRows } = conversationId
+      ? await supabase.from('messages').select('role,content,created_at')
+        .eq('conversation_id', conversationId).eq('owner_id', ownerId)
+        .order('created_at', { ascending: false }).limit(24)
+      : { data: [] }
+    const memoryContext = buildProjectMemory((memoryRows ?? []).slice().reverse())
     const skills = buildSkillInstructions(userPrompt)
     const aiPrompt = `Você é o editor inteligente do ALTIV DEV. Trabalhe como um time coordenado, não como um gerador de texto solto.
 
@@ -212,6 +224,10 @@ ${context}`
         throw new Error('O pedido era visual, mas nenhum arquivo visual foi alterado. Tente novamente com o agente completo.')
       }
     }
+
+    const securityFindings = auditProjectSecurity(changed)
+    const criticalFindings = securityFindings.filter((finding) => finding.severity === 'high')
+    if (criticalFindings.length) throw new Error('Alteração bloqueada por auditoria estática: ' + criticalFindings.map((finding) => finding.rule + ' (' + finding.file + ')').join(', '))
 
     const now = new Date().toISOString()
     const rows = changed.map((file) => ({
