@@ -1,6 +1,7 @@
 import type { AgentTask } from '@/lib/agent/pipeline'
 
 export type ProviderId =
+  | 'freellmapi'
   | 'openrouter'
   | 'opencode-zen'
   | 'openai'
@@ -24,6 +25,7 @@ export type ProviderRoute = {
 
 const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
   code: [
+    { provider:'freellmapi', model:'auto', free:true, role:'unified-free-code-router' },
     { provider:'openrouter', model:'openrouter/free', free:true, role:'free-code-router' },
     { provider:'groq', model:'openai/gpt-oss-120b', free:true, role:'free-code-groq' },
     { provider:'opencode-zen', model:'nemotron-3-ultra-free', free:true, role:'zen-code-free' },
@@ -37,6 +39,7 @@ const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
     { provider:'gemini', model:process.env.GEMINI_CODE_MODEL || 'gemini-3.1-pro-preview', role:'large-context' },
   ],
   design: [
+    { provider:'freellmapi', model:'auto', free:true, role:'unified-free-design-router' },
     { provider:'openrouter', model:'openrouter/free', free:true, role:'free-design-router' },
     { provider:'gemini', model:process.env.GEMINI_DESIGN_MODEL || 'gemini-3.1-pro-preview', role:'design-vision' },
     { provider:'anthropic', model:'claude-sonnet-4-5', role:'design-review' },
@@ -44,6 +47,7 @@ const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
     { provider:'together', model:'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8', role:'design-alt' },
   ],
   debug: [
+    { provider:'freellmapi', model:'auto', free:true, role:'unified-free-debug-router' },
     { provider:'openrouter', model:'openrouter/free', free:true, role:'free-debug-router' },
     { provider:'opencode-zen', model:'nemotron-3.5-lightning-free', free:true, role:'zen-debug-free' },
     { provider:'cerebras', model:'gpt-oss-120b', free:true, role:'fast-debug' },
@@ -53,6 +57,7 @@ const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
     { provider:'gemini', model:process.env.GEMINI_CODE_MODEL || 'gemini-3.1-pro-preview', role:'review' },
   ],
   plan: [
+    { provider:'freellmapi', model:'auto', free:true, role:'unified-free-planning-router' },
     { provider:'openrouter', model:'openrouter/free', free:true, role:'free-planning-router' },
     { provider:'groq', model:'openai/gpt-oss-120b', free:true, role:'free-planning-groq' },
     { provider:'cerebras', model:'gpt-oss-120b', free:true, role:'fast-plan' },
@@ -62,6 +67,7 @@ const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
     { provider:'gemini', model:process.env.GEMINI_CODE_MODEL || 'gemini-3.1-pro-preview', role:'large-context' },
   ],
   vision: [
+    { provider:'freellmapi', model:'auto', free:true, role:'unified-free-vision-router' },
     { provider:'openrouter', model:'openrouter/free', free:true, role:'free-vision-router' },
     { provider:'gemini', model:process.env.GEMINI_FREE_MODEL || 'gemini-2.5-flash', free:true, role:'free-vision-gemini' },
     { provider:'gemini', model:process.env.GEMINI_VISION_MODEL || 'gemini-3.1-pro-preview', role:'vision' },
@@ -70,6 +76,7 @@ const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
     { provider:'anthropic', model:'claude-sonnet-4-5', role:'vision-review' },
   ],
   fast: [
+    { provider:'freellmapi', model:'auto', free:true, role:'unified-free-fast-router' },
     { provider:'openrouter', model:'openrouter/free', free:true, role:'free-fast-router' },
     { provider:'groq', model:'openai/gpt-oss-120b', free:true, role:'free-fast-groq' },
     { provider:'opencode-zen', model:'ling-3.0-flash-fin-free', free:true, role:'zen-fast-free' },
@@ -81,12 +88,13 @@ const FREE_FIRST: Record<AgentTask, ProviderRoute[]> = {
 }
 
 const ALL_PROVIDER_IDS:ProviderId[] = [
-  'openrouter','opencode-zen','openai','gemini','nvidia','groq','cerebras',
+  'freellmapi','openrouter','opencode-zen','openai','gemini','nvidia','groq','cerebras',
   'deepseek','mistral','together','fireworks','xai','anthropic',
 ]
 
 function envKey(provider:ProviderId) {
   const map:Record<ProviderId,string|undefined> = {
+    freellmapi:process.env.FREELLMAPI_BASE_URL && process.env.FREELLMAPI_API_KEY ? process.env.FREELLMAPI_API_KEY : undefined,
     openrouter:process.env.OPENROUTER_API_KEY,
     'opencode-zen':process.env.OPENCODE_ZEN_API_KEY,
     openai:process.env.OPENAI_API_KEY,
