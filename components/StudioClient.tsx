@@ -392,10 +392,12 @@ export default function StudioClient({
       }
 
       setHealthScore(Number(data.quality?.score ?? 0))
+      const securityFindings = Array.isArray(data.security?.findings) ? data.security.findings : []
       setResult({
         ok: true,
         summary: 'QA do projeto: ' + Number(data.quality?.score ?? 0) + '/100. ' +
-          ((data.quality?.issues ?? []).slice(0, 3).join(' · ') || 'Nenhum problema importante encontrado.'),
+          ((data.quality?.issues ?? []).slice(0, 3).join(' · ') || 'Nenhum problema importante encontrado.') +
+          (securityFindings.length ? ' · Segurança: ' + securityFindings.length + ' alerta(s): ' + securityFindings.slice(0, 2).map((item: {rule:string;file:string}) => item.rule + ' em ' + item.file).join(', ') : ' · Segurança estática: sem alertas nas regras básicas.'),
         qualityScore: Number(data.quality?.score ?? 0),
         qualityIssues: data.quality?.issues ?? [],
       })
