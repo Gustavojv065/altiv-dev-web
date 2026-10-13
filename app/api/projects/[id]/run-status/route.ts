@@ -57,18 +57,23 @@ export async function GET(
     currentStep = step?.step_name ?? null
   }
 
-  const active = Boolean(lock) || Boolean(run && !['completed','failed'].includes(String(run.status)))
+  // The lock is the authoritative liveness signal. A function that stopped
+  // unexpectedly may leave a non-terminal run row behind after the lock expires.
+  const unfinished = Boolean(run && !['completed','failed'].includes(String(run.status)))
+  const interrupted = unfinished && !lock
+  const active = Boolean(lock)
   return NextResponse.json({
     ok:true,
     active,
+    interrupted,
     projectStatus:project.status,
     lockExpiresAt:lock?.expires_at ?? null,
     run:run ? {
       id:run.id,
-      status:run.status,
+      status:interrupted ? 'interrupted' : run.status,
       prompt:run.prompt,
       model:run.selected_model,
-      error:run.error_message,
+      error:interrupted ? (run.error_message || 'A execução parou antes de terminar. Tente novamente.') : run.error_message,
       startedAt:run.started_at,
       finishedAt:run.finished_at,
       currentStep,
