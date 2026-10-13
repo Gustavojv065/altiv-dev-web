@@ -18,6 +18,7 @@ create table if not exists public.altiv_agent_job_index (
 create index if not exists altiv_agent_job_index_project on public.altiv_agent_job_index(owner_id,project_id,created_at desc);
 alter table public.altiv_agent_job_index enable row level security;
 revoke all on public.altiv_agent_job_index from anon, authenticated;
+grant select on public.altiv_agent_job_index to authenticated;
 create policy "Owners may read own agent job status" on public.altiv_agent_job_index for select to authenticated using (owner_id = (select auth.uid()));
 
 -- SECURITY: Only trusted backend/worker roles should call pgmq.send/read/delete/archive.
