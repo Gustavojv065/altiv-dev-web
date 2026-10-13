@@ -23,6 +23,7 @@ jobs:
           NEXT_TELEMETRY_DISABLED: '1'
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: isolated-ci-placeholder
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: isolated-ci-placeholder
           SUPABASE_URL: https://example.supabase.co
           SUPABASE_ANON_KEY: isolated-ci-placeholder
       - name: Start local Next server
