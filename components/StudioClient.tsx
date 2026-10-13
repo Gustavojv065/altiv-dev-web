@@ -180,7 +180,11 @@ export default function StudioClient({
           const filesResponse = await fetch('/api/projects/' + projectId + '/files', { cache:'no-store' })
           const filesData = await filesResponse.json()
           if (!stopped && filesData?.ok && Array.isArray(filesData.files)) setFiles(filesData.files)
-          window.setTimeout(()=>window.location.reload(),350)
+          if (data.interrupted) {
+            setResult({ ok:false, error:data.run?.error || 'A execução foi interrompida. Tente novamente.' })
+          } else {
+            window.setTimeout(()=>window.location.reload(),350)
+          }
         } else if (!running) {
           await syncPreview()
         }
@@ -423,11 +427,20 @@ export default function StudioClient({
         return
       }
 
+      const backupVersion = Number(data.backupVersion)
+      if (Number.isInteger(backupVersion) && backupVersion > 0) {
+        setVersions((current) => [{
+          id:'backup-' + Date.now(),
+          version_number:backupVersion,
+          summary:'Backup antes do envio ao GitHub',
+          created_at:new Date().toISOString(),
+        }, ...current.filter((version)=>version.version_number !== backupVersion)])
+      }
       const prUrl = data.pullRequest?.html_url as string | undefined
       setMessages((current) => [...current,{
         id:'github-' + Date.now(),
         role:'assistant',
-        content:'Alterações enviadas para a branch ' + data.branch + (prUrl ? ' e PR criado no GitHub.' : '.'),
+        content:'Backup r' + backupVersion + ' salvo. Alterações enviadas para a branch ' + data.branch + (prUrl ? ' e PR criado no GitHub.' : '.'),
         model:null,
         created_at:new Date().toISOString(),
       }])
