@@ -43,6 +43,43 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>
     const token = credential?.secret || process.env.GITHUB_TOKEN
     if (!token) return NextResponse.json({ok:false,error:'GitHub não conectado.'},{status:400})
 
+    // Persist a complete restore point before any external GitHub write.
+    const { data:lastVersion,error:lastVersionError } = await supabase
+      .from('project_versions')
+      .select('version_number')
+      .eq('project_id',id)
+      .eq('owner_id',ownerId)
+      .order('version_number',{ ascending:false })
+      .limit(1)
+      .maybeSingle()
+    if (lastVersionError) throw lastVersionError
+
+    const backupVersion = (lastVersion?.version_number ?? 0) + 1
+    const { error:backupError } = await supabase.from('project_versions').insert({
+      owner_id:ownerId,
+      project_id:id,
+      version_number:backupVersion,
+      source_type:'snapshot',
+      summary:'Backup antes do envio ao GitHub',
+      metadata:{ action:'pre_github_push', repository:project.github_repo, file_count:files.length },
+    })
+    if (backupError) throw backupError
+
+    const { error:backupFilesError } = await supabase.from('project_version_files').insert(
+      files.map((file)=>({
+        owner_id:ownerId,
+        project_id:id,
+        version_number:backupVersion,
+        path:file.path,
+        content:file.content,
+      }))
+    )
+    if (backupFilesError) {
+      await supabase.from('project_versions').delete()
+        .eq('project_id',id).eq('owner_id',ownerId).eq('version_number',backupVersion)
+      throw backupFilesError
+    }
+
     const branchName = safeBranchName(id)
     const result = await pushProjectToGitHub({
       token,
@@ -60,7 +97,7 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>
       metadata:{ provider:'github',action:'push_pr',projectId:id,repository:project.github_repo,branch:branchName },
     })
 
-    return NextResponse.json({ok:true,...result})
+    return NextResponse.json({ok:true,backupVersion,...result})
   } catch (error) {
     return NextResponse.json({ok:false,error:error instanceof Error ? error.message : 'Falha ao enviar para GitHub.'},{status:500})
   }
