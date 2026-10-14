@@ -26,7 +26,7 @@ export async function GET(req:NextRequest) {
     if (!credential?.secret) return NextResponse.json({ok:false,error:'Provider não conectado.'},{status:400})
     const models = await discoverProviderModels(provider,credential.secret)
     if (provider === 'gemini' && !models.some((item)=>item.id === 'gemini-4-argon')) {
-      models.push({id:'gemini-4-argon',label:'Gemini 4 Argon (API paga; requer acesso)'})
+      models.push({id:'gemini-4-argon',label:'Gemini 4 Argon (API paga; requer acesso)',inputTokenLimit:undefined,outputTokenLimit:undefined})
     }
     return NextResponse.json({
       ok:true,
