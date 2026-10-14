@@ -25,16 +25,13 @@ export async function GET(req:NextRequest) {
     const credential = await getCredential(id,provider)
     if (!credential?.secret) return NextResponse.json({ok:false,error:'Provider não conectado.'},{status:400})
     const models = await discoverProviderModels(provider,credential.secret)
-    const selectableModels = provider === 'gemini' && !models.some((item)=>item.id === 'gemini-4-argon')
-      ? [...models,{id:'gemini-4-argon',label:'Gemini 4 Argon (API paga; requer acesso)'}]
-      : models
     return NextResponse.json({
       ok:true,
       provider,
-      models:selectableModels,
+      models,
       selectedModel:String(credential.metadata?.selectedModel ?? ''),
       manualActive:Boolean(credential.metadata?.manualActive),
-      count:selectableModels.length,
+      count:models.length,
     })
   } catch (error) {
     return NextResponse.json({ok:false,error:error instanceof Error ? error.message : 'Falha ao carregar modelos.'},{status:500})
