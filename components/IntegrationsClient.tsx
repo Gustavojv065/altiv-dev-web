@@ -314,6 +314,7 @@ export default function IntegrationsClient() {
                     <label>Modelo manual</label>
                     <select value={selectedModels[provider.id] || ''} onChange={(e)=>setSelectedModels((current)=>({...current,[provider.id]:e.target.value}))}>
                       {providerModels.map((model)=><option value={model.id} key={model.id}>{model.id === 'gemini-4-argon' ? 'Gemini 4 Argon — API paga' : model.label || model.id}</option>)}
+                {provider.id === 'gemini' && !providerModels.some((model)=>model.id === 'gemini-4-argon') && <option value="gemini-4-argon">Gemini 4 Argon — API paga</option>}
                     </select>
                     <button className="primaryAction" onClick={()=>useManualModel(provider.id)} disabled={busy==='routing'}>
                       Usar este modelo
