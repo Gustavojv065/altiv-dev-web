@@ -109,6 +109,7 @@ export async function callUserProvider(
   const temperature = options.temperature ?? 0.45
   const def = PROVIDER_REGISTRY[route.provider]
 
+  if (route.provider === 'gemini' && route.model === 'gemini-4-argon') return callGeminiArgon(key,messages,Math.max(timeoutMs,240000),maxTokens)
   if (def.apiStyle === 'gemini') return callGemini(route.model,key,messages,timeoutMs,maxTokens,temperature)
   if (def.apiStyle === 'openai-responses') return callOpenAIResponses(route.model,key,messages,timeoutMs,maxTokens)
   if (def.apiStyle === 'anthropic') return callAnthropic(route.model,key,messages,timeoutMs,maxTokens,temperature)
