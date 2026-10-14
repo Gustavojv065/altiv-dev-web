@@ -110,9 +110,9 @@ export async function discoverProviderModels(provider:ProviderId, key:string) {
     if (!response.ok) throw new Error('Gemini recusou a consulta de modelos (' + response.status + ').')
     const data = await response.json()
     return (data?.models ?? [])
-      .filter((item:any)=>Array.isArray(item?.supportedGenerationMethods)
+      .filter((item:any)=>modelName(item) === 'gemini-4-argon' || (Array.isArray(item?.supportedGenerationMethods)
         ? item.supportedGenerationMethods.includes('generateContent')
-        : true)
+        : true))
       .map((item:any)=>({
         id:modelName(item),
         label:String(item?.displayName ?? modelName(item)),

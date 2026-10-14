@@ -730,7 +730,7 @@ export async function POST(req: NextRequest) {
     }))
     const activeCredentials = credentials.filter((item): item is NonNullable<typeof item> => Boolean(item))
     const userKeys = Object.fromEntries(activeCredentials.map((item)=>[item.provider,item.secret])) as UserProviderKeys
-    const manual = activeCredentials.find((item)=>Boolean(item.metadata?.manualActive) && typeof item.metadata?.selectedModel === 'string')
+    const manual = activeCredentials.find((item)=>Boolean(item.metadata?.manualActive) && typeof item.metadata?.selectedModel === 'string' && (item.provider !== 'gemini' || item.metadata.selectedModel !== 'gemini-4-argon' || item.metadata.paidOptIn === true))
     const manualRoutes:ProviderRoute[] | undefined = manual ? [{
       provider:manual.provider,
       model:String(manual.metadata.selectedModel),

@@ -102,11 +102,13 @@ export default function StudioConnectionsPanel({mode}:{mode:'github'|'ai'}) {
   async function setManualModel(provider:ProviderId) {
     const model=selected[provider]
     if(!model) return setMessage('Selecione um modelo.')
+    const confirmPaid = provider === 'gemini' && model === 'gemini-4-argon'
+    if (confirmPaid && !window.confirm('Gemini 4 Argon cobra por tokens na API Google, fora do plano Gemini Pro. Deseja ativar esse modelo pago para os próximos pedidos?')) return
     setBusy('route')
     try{
       const response=await fetch('/api/integrations/providers/models',{
         method:'POST',headers:{'content-type':'application/json'},
-        body:JSON.stringify({mode:'manual',provider,model}),
+        body:JSON.stringify({mode:'manual',provider,model,confirmPaid}),
       })
       const data=await response.json()
       if(!data.ok) return setMessage(data.error)
@@ -235,7 +237,8 @@ export default function StudioConnectionsPanel({mode}:{mode:'github'|'ai'}) {
             </div>
             {providerModels.length>0 && <div className="compactModelPicker">
               <select value={selected[provider.id]||''} onChange={(e)=>setSelected((old)=>({...old,[provider.id]:e.target.value}))}>
-                {providerModels.map((model)=><option value={model.id} key={model.id}>{model.label || model.id}</option>)}
+                {providerModels.map((model)=><option value={model.id} key={model.id}>{model.id === 'gemini-4-argon' ? 'Gemini 4 Argon — API paga' : model.label || model.id}</option>)}
+                {provider.id === 'gemini' && !providerModels.some((model)=>model.id === 'gemini-4-argon') && <option value="gemini-4-argon">Gemini 4 Argon — API paga</option>}
               </select>
               <button className="primaryAction" onClick={()=>setManualModel(provider.id)} disabled={busy==='route'}>Usar manualmente</button>
             </div>}
