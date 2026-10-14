@@ -158,12 +158,14 @@ export default function IntegrationsClient() {
   async function useManualModel(providerId:ProviderId) {
     const model = selectedModels[providerId]
     if (!model) return setMessage('Selecione um modelo primeiro.')
+    const confirmPaid = providerId === 'gemini' && model === 'gemini-4-argon'
+    if (confirmPaid && !window.confirm('Gemini 4 Argon cobra por tokens na API Google, fora do plano Gemini Pro. Deseja ativar esse modelo pago para os próximos pedidos?')) return
     setBusy('routing'); setMessage('')
     try {
       const response = await fetch('/api/integrations/providers/models', {
         method:'POST',
         headers:{'content-type':'application/json'},
-        body:JSON.stringify({ mode:'manual', provider:providerId, model }),
+        body:JSON.stringify({ mode:'manual', provider:providerId, model, confirmPaid }),
       })
       const data = await response.json()
       if (!data.ok) return setMessage(data.error)
@@ -311,7 +313,7 @@ export default function IntegrationsClient() {
                   <div className="modelPicker">
                     <label>Modelo manual</label>
                     <select value={selectedModels[provider.id] || ''} onChange={(e)=>setSelectedModels((current)=>({...current,[provider.id]:e.target.value}))}>
-                      {providerModels.map((model)=><option value={model.id} key={model.id}>{model.label || model.id}</option>)}
+                      {providerModels.map((model)=><option value={model.id} key={model.id}>{model.id === 'gemini-4-argon' ? 'Gemini 4 Argon — API paga' : model.label || model.id}</option>)}
                     </select>
                     <button className="primaryAction" onClick={()=>useManualModel(provider.id)} disabled={busy==='routing'}>
                       Usar este modelo
