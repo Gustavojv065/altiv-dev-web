@@ -25,6 +25,9 @@ export async function GET(req:NextRequest) {
     const credential = await getCredential(id,provider)
     if (!credential?.secret) return NextResponse.json({ok:false,error:'Provider não conectado.'},{status:400})
     const models = await discoverProviderModels(provider,credential.secret)
+    if (provider === 'gemini' && !models.some((item)=>item.id === 'gemini-4-argon')) {
+      models.push({id:'gemini-4-argon',label:'Gemini 4 Argon (API paga; requer acesso)'})
+    }
     return NextResponse.json({
       ok:true,
       provider,
@@ -52,15 +55,18 @@ export async function POST(req:NextRequest) {
     }
   }
 
+  if (mode !== 'manual') return NextResponse.json({ok:false,error:'Modo inválido.'},{status:400})
   const provider = String(body?.provider ?? '')
   const model = String(body?.model ?? '').trim()
   if (!validProvider(provider) || !model) return NextResponse.json({ok:false,error:'Provider e modelo são obrigatórios.'},{status:400})
+  const argon = provider === 'gemini' && model === 'gemini-4-argon'
+  if (argon && body?.confirmPaid !== true) return NextResponse.json({ok:false,error:'Confirme explicitamente o custo da API Gemini 4 Argon.'},{status:400})
 
   try {
     const credential = await getCredential(id,provider)
     if (!credential?.secret) return NextResponse.json({ok:false,error:'Provider não conectado.'},{status:400})
     await clearManualRouting(id)
-    await updateCredentialMetadata(id,provider,{ selectedModel:model, manualActive:true })
+    await updateCredentialMetadata(id,provider,{ selectedModel:model, manualActive:true, paidOptIn:argon })
     return NextResponse.json({ok:true,mode:'manual',provider,model})
   } catch (error) {
     return NextResponse.json({ok:false,error:error instanceof Error ? error.message : 'Falha ao salvar preferência.'},{status:500})
