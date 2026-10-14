@@ -27,28 +27,6 @@ async function callGemini(model:string, key:string, messages:Message[], timeoutM
   return text
 }
 
-async function callGeminiArgon(key:string, messages:Message[], timeoutMs:number, maxTokens:number) {
-  const input = messages.map((message)=>message.role.toUpperCase() + ':\n' + message.content).join('\n\n')
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-    method:'POST',
-    signal:AbortSignal.timeout(timeoutMs),
-    headers:{'content-type':'application/json','x-goog-api-key':key},
-    body:JSON.stringify({
-      model:'gemini-4-argon',
-      input,
-      generation_config:{ max_output_tokens:Math.max(32768,maxTokens), thinking_level:'medium' },
-    }),
-  })
-  if (!response.ok) throw new Error('Gemini 4 Argon falhou: ' + response.status + ' ' + (await response.text()).slice(0,220))
-  const data = await response.json()
-  const text = String(data?.output_text || data?.steps?.filter((step:{type?:string})=>step.type === 'model_output')
-    ?.flatMap((step:{content?:Array<{type?:string;text?:string}>})=>step.content ?? [])
-    ?.filter((part:{type?:string})=>part.type === 'text')
-    ?.map((part:{text?:string})=>part.text || '').join('') || '').trim()
-  if (!text) throw new Error('Gemini 4 Argon não retornou conteúdo.')
-  return text
-}
-
 async function callOpenAIResponses(model:string,key:string,messages:Message[],timeoutMs:number,maxTokens:number) {
   const response = await fetch('https://api.openai.com/v1/responses', {
     method:'POST',
@@ -109,7 +87,6 @@ export async function callUserProvider(
   const temperature = options.temperature ?? 0.45
   const def = PROVIDER_REGISTRY[route.provider]
 
-  if (route.provider === 'gemini' && route.model === 'gemini-4-argon') return callGeminiArgon(key,messages,Math.max(timeoutMs,240000),maxTokens)
   if (def.apiStyle === 'gemini') return callGemini(route.model,key,messages,timeoutMs,maxTokens,temperature)
   if (def.apiStyle === 'openai-responses') return callOpenAIResponses(route.model,key,messages,timeoutMs,maxTokens)
   if (def.apiStyle === 'anthropic') return callAnthropic(route.model,key,messages,timeoutMs,maxTokens,temperature)
