@@ -238,6 +238,7 @@ export default function StudioConnectionsPanel({mode}:{mode:'github'|'ai'}) {
             {providerModels.length>0 && <div className="compactModelPicker">
               <select value={selected[provider.id]||''} onChange={(e)=>setSelected((old)=>({...old,[provider.id]:e.target.value}))}>
                 {providerModels.map((model)=><option value={model.id} key={model.id}>{model.id === 'gemini-4-argon' ? 'Gemini 4 Argon — API paga' : model.label || model.id}</option>)}
+                {provider.id === 'gemini' && !providerModels.some((model)=>model.id === 'gemini-4-argon') && <option value="gemini-4-argon">Gemini 4 Argon — API paga</option>}
               </select>
               <button className="primaryAction" onClick={()=>setManualModel(provider.id)} disabled={busy==='route'}>Usar manualmente</button>
             </div>}
