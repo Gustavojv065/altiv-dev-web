@@ -15,6 +15,12 @@ export type ProviderDefinition = {
 }
 
 export const PROVIDER_REGISTRY: Record<ProviderId, ProviderDefinition> = {
+  freellmapi: {
+    id:'freellmapi', label:'FreeLLMAPI Gateway', free:true,
+    note:'Gateway OpenAI-compatible auto-hospedado; requer URL HTTPS e chave unificada no servidor.',
+    apiStyle:'openai-chat', chatPath:'/chat/completions', modelsPath:'/models',
+    capabilities:['code','design','vision','fast','reasoning','text'],
+  },
   openrouter: {
     id:'openrouter', label:'OpenRouter', free:true,
     note:'Roteador com muitos modelos gratuitos e pagos em uma única chave.',
@@ -122,6 +128,14 @@ export async function discoverProviderModels(provider:ProviderId, key:string) {
       .filter((item:{id:string})=>Boolean(item.id))
   }
 
+  if (provider === 'freellmapi') {
+    const base = process.env.FREELLMAPI_BASE_URL
+    if (!base || !/^https:\/\/[^/?#]+(?:\/v1)?\/?$/i.test(base)) throw new Error('Configure FREELLMAPI_BASE_URL como URL HTTPS pública terminando em /v1.')
+    const response = await fetch(base.replace(/\/$/,'') + '/models', { headers:{authorization:'Bearer ' + key}, signal, cache:'no-store' })
+    if (!response.ok) throw new Error('FreeLLMAPI recusou a consulta (' + response.status + ').')
+    const data = await response.json()
+    return (Array.isArray(data?.data) ? data.data : []).map((item:{id?:string})=>({id:String(item.id ?? ''),label:String(item.id ?? '')})).filter((item:{id:string})=>Boolean(item.id))
+  }
   if (!def.baseUrl || !def.modelsPath) return []
   const headers:Record<string,string> = {}
   if (provider === 'anthropic') {
