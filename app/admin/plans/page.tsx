@@ -23,6 +23,7 @@ export default async function AdminPlansPage({ searchParams }:{searchParams:Prom
           <a href="/admin">Visão geral</a>
           <a href="/admin/clients">Clientes</a>
           <a className="active">Planos e preços</a>
+          <a href="/admin/apk-licenses">Licenças do APK</a>
           <a href="/workspace">Workspace</a>
         </nav>
       </aside>
