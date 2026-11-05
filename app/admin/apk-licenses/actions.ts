@@ -155,7 +155,7 @@ export async function suspendApkLicense(form: FormData) {
     .eq('user_id', userId)
     .select('valid_until').maybeSingle()
   if (error || !data) flash('error', 'Não foi possível suspender a licença.')
-  await recordEvent(userId, actor.id, 'suspended', data.valid_until, data.valid_until)
+  await recordEvent(userId, actor.id, 'suspended', data!.valid_until, data!.valid_until)
   revalidatePath(path)
   flash('message', 'Acesso aos serviços comerciais suspenso, sem apagar dados locais.')
 }
