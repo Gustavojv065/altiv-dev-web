@@ -18,8 +18,8 @@ export async function getExtensionSession() {
     .select('account_id,expires_at,revoked_at').eq('id', session.license_id).maybeSingle()
   if (!license || license.revoked_at || license.expires_at <= now) return null
   const { data: account } = await supabase.from('saas_accounts')
-    .select('name,status,trial_ends_at').eq('id', license.account_id).maybeSingle()
+    .select('name,owner_id,status,trial_ends_at').eq('id', license.account_id).maybeSingle()
   if (!account || !['active', 'trial'].includes(account.status)) return null
   if (account.status === 'trial' && (!account.trial_ends_at || account.trial_ends_at <= now)) return null
-  return { accountId: license.account_id as string, accountName: account.name as string, expiresAt: session.expires_at as string }
+  return { accountId: license.account_id as string, accountName: account.name as string, ownerId: account.owner_id as string, licenseId: session.license_id as string, expiresAt: session.expires_at as string }
 }

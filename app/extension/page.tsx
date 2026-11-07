@@ -14,7 +14,8 @@ export default async function ExtensionAccessPage({ searchParams }: { searchPara
         {session ? (<>
           <div className="authAlert">Licença ativa para {session.accountName}.</div>
           <p>Válida até {new Date(session.expiresAt).toLocaleDateString('pt-BR')}.</p>
-          <p>Seu acesso por código está ativo. A conexão com o editor e os repositórios será homologada separadamente.</p>
+          <p>Acesso validado. Você pode enviar pedidos para seus projetos autorizados sem instalar aplicativos.</p>
+          <p><a className="authPrimary" style={{ display: 'inline-block', padding: '12px 18px' }} href="/extension/workspace">Abrir painel de projetos</a></p>
           <form action={exitExtension}><button className="authSecondary">Sair deste dispositivo</button></form>
         </>) : (<>
           {erro && <div className="authAlert error">Código inválido, expirado ou já utilizado. Solicite outro ao administrador.</div>}
