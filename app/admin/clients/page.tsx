@@ -33,6 +33,7 @@ export default async function AdminClientsPage({ searchParams }: { searchParams:
         <nav className="adminNav">
           <a href="/admin">Visão geral</a>
           <a className="active">Clientes</a>
+          <a href="/admin/licencas">Licenças ALTIVE DEV</a>
           <a href="/workspace">Workspace</a>
         </nav>
       </aside>

@@ -14,6 +14,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <label>Senha</label><input name="password" type="password" minLength={12} required placeholder="12+ caracteres" /><small className="authPasswordHint">Use 12+ caracteres com maiúscula, minúscula, número e símbolo. Senhas vazadas são bloqueadas.</small>
           <div className="authActions"><button formAction={login} className="authPrimary">Entrar</button><button formAction={signup} className="authSecondary">Criar conta</button></div>
         </form>
+        <p><a href="/extension">Recebeu um código ALTIVE? Entrar sem e-mail e senha</a></p>
       </section>
     </main>
   )
