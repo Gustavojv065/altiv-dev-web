@@ -698,3 +698,12 @@
 /* Shared mobile switch stays visible when either studio pane is hidden. */
 .altivMobileSwitcher{display:none}
 @media(max-width:767px){.altivGoogleStudio .altivMobileSwitcher{display:flex;flex-direction:column;gap:6px;padding:8px 2px}.altivGoogleStudio .altivMobileSwitcher button{border:1px solid currentColor;border-radius:8px;padding:8px 2px;background:transparent;color:inherit;font-size:10px;cursor:pointer}.altivGoogleStudio .altivMobileSwitcher button[aria-pressed="true"]{background:rgba(120,120,120,.25);font-weight:700}}
+
+/* ALTIVE DEV extension code workspace — responsive, touch-friendly controls */
+.authCard select,.authCard textarea{width:100%;background:#0a0d12;border:1px solid #2a3241;border-radius:11px;color:#fff;padding:12px 13px;outline:none;font:inherit}
+.authCard select:focus,.authCard textarea:focus{border-color:#6dc2bb}
+.authCard textarea{min-height:120px;resize:vertical}
+.altivExtensionForm{display:grid;gap:10px;max-width:600px}
+.altivExtensionForm select{padding:12px;color:#e3ebf6;background:#0a0d12;border:1px solid #344052;border-radius:10px}
+.altivExtensionForm button{padding:12px;background:#e8f3ef;color:#0c1920;font-weight:800;border:0;border-radius:10px}
+.altivExtensionForm button:disabled{opacity:.5;cursor:not-allowed}
