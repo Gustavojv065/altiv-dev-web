@@ -1,0 +1,27 @@
+plugins {
+    id 'com.android.application'
+}
+android {
+    namespace 'online.altive.dev'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'online.altive.dev'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+        // Host is configurable at build time; never embed secrets.
+        def portal = (project.findProperty('altivePortalUrl') ?: 'https://altiv-dev-web.vercel.app/extension').toString()
+        if (!(portal ==~ /^https:\/\/[a-zA-Z0-9.-]+\/extension\/?$/)) {
+            throw new GradleException('altivePortalUrl must be an HTTPS /extension URL.')
+        }
+        buildConfigField 'String', 'PORTAL_URL', '"' + portal + '"'
+    }
+    buildFeatures {
+        buildConfig true
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
