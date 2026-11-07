@@ -18,6 +18,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-package-lock --ignore-scripts
+      - run: node --experimental-strip-types --test tests/license.test.mjs
       - run: npm run typecheck
       - run: npm run build
         env:
